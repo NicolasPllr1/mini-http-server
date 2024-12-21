@@ -47,7 +47,9 @@ fn main() {
                 println!("Request: {}", full_request);
                 let request_line = full_request.split("\n").collect::<Vec<&str>>()[0];
                 dbg!(request_line);
-                if *"GET /" == request_line[..5] {
+                let request_message = request_line.split(" ").collect::<Vec<&str>>()[1];
+                dbg!(request_message);
+                if *"/" == *request_message {
                     let res = stream.write(ok_response);
                     match res {
                         Ok(_) => println!("Successfully sent 200 OK response"),
