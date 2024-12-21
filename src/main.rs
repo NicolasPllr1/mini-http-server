@@ -35,6 +35,7 @@ fn main() {
     let listener = TcpListener::bind("127.0.0.1:4221").unwrap();
 
     let ok_response = b"HTTP/1.1 200 OK\r\n\r\n";
+    let not_ok_response = b"HTTP/1.1 404 Not Found\r\n\r\n";
 
     for stream in listener.incoming() {
         match stream {
@@ -48,6 +49,12 @@ fn main() {
                 dbg!(request_line);
                 if *"GET /" == request_line[..5] {
                     let res = stream.write(ok_response);
+                    match res {
+                        Ok(_) => println!("Successfully sent 200 OK response"),
+                        Err(e) => println!("Error sending 200 OK response: {}", e),
+                    }
+                } else {
+                    let res = stream.write(not_ok_response);
                     match res {
                         Ok(_) => println!("Successfully sent 200 OK response"),
                         Err(e) => println!("Error sending 200 OK response: {}", e),
