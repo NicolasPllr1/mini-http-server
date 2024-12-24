@@ -29,6 +29,7 @@ impl HttpRequest {
             .map(|line_res| line_res.unwrap())
             .take_while(|line| !is_html_request_last_line(line))
             .collect();
+        dbg!(&html_request);
 
         let (http_method, ressource_path, protocol_version) = match html_request[0]
             .split(" ")
