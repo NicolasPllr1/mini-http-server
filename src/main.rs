@@ -1,30 +1,13 @@
-#[allow(unused_imports)]
-use std::io::prelude::*;
-use std::net::{TcpListener, TcpStream};
+mod html_request;
+use html_request::HttpRequest;
 
-fn is_html_request_complete(buf: &Vec<u8>) -> bool {
-    let end_pattern = "\r\n\r\n"; // double CRFL
-    buf.windows(end_pattern.len()).any(|w| w == b"\r\n\r\n")
-}
+mod html_response;
+use html_response::HttpResponse;
 
-fn read_request(stream: &mut TcpStream) -> Option<Vec<u8>> {
-    let mut buf = Vec::new();
-    let mut tmp_buf = [0; 1024];
-    loop {
-        match stream.read(&mut tmp_buf) {
-            Ok(n) => {
-                buf.extend_from_slice(&tmp_buf[..n]);
-                if is_html_request_complete(&buf) {
-                    return Some(buf);
-                }
-            }
-            Err(e) => {
-                println!("Problem reading the request: {}", e);
-                return None;
-            }
-        }
-    }
-}
+mod html_commons;
+
+use std::io::Write;
+use std::net::TcpListener;
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -35,31 +18,29 @@ fn main() {
     let listener = TcpListener::bind("127.0.0.1:4221").unwrap();
 
     let ok_response = b"HTTP/1.1 200 OK\r\n\r\n";
-    let not_ok_response = b"HTTP/1.1 404 Not Found\r\n\r\n";
+    // let not_ok_response = b"HTTP/1.1 404 Not Found\r\n\r\n";
 
     for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {
                 println!("accepted new connection");
 
-                let buf: Vec<u8> = read_request(&mut stream).unwrap();
-                let full_request = String::from_utf8(buf).expect("Our bytes should be valid utf8");
-                println!("Request: {}", full_request);
-                let request_line = full_request.split("\n").collect::<Vec<&str>>()[0];
-                dbg!(request_line);
-                let request_message = request_line.split(" ").collect::<Vec<&str>>()[1];
-                dbg!(request_message);
-                if *"/" == *request_message {
+                let http_request = HttpRequest::new_from_stream(&mut stream);
+                dbg!(&http_request);
+
+                if *"/" == http_request.ressource_path {
                     let res = stream.write(ok_response);
                     match res {
                         Ok(_) => println!("Successfully sent 200 OK response"),
                         Err(e) => println!("Error sending 200 OK response: {}", e),
                     }
                 } else {
-                    let res = stream.write(not_ok_response);
+                    let http_response = HttpResponse::build_response(&http_request).unwrap();
+                    let final_response_to_send = HttpResponse::craft_response(&http_response);
+                    let res = stream.write(final_response_to_send.as_bytes());
                     match res {
-                        Ok(_) => println!("Successfully sent 200 OK response"),
-                        Err(e) => println!("Error sending 200 OK response: {}", e),
+                        Ok(_) => println!("Successfully sent response: {}", final_response_to_send),
+                        Err(e) => println!("Error sending  response: {}", e),
                     }
                 }
             }
