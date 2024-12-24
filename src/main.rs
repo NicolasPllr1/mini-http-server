@@ -41,7 +41,11 @@ fn main() {
                                 HttpResponse::craft_response(&http_response);
                             let _res = stream.write(final_response_to_send.as_bytes()).unwrap();
                         }
-                        None => println!("No 'echo' request detected"),
+                        None => {
+                            println!("Reponding with 404 Not Found");
+                            let not_found_response = "HTTP/1.1 404 Not Found\r\n\r\n";
+                            let _res = stream.write(not_found_response.as_bytes()).unwrap();
+                        }
                     }
                 }
             }
