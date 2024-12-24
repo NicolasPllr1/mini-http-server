@@ -35,12 +35,13 @@ fn main() {
                         Err(e) => println!("Error sending 200 OK response: {}", e),
                     }
                 } else {
-                    let http_response = HttpResponse::build_response(&http_request).unwrap();
-                    let final_response_to_send = HttpResponse::craft_response(&http_response);
-                    let res = stream.write(final_response_to_send.as_bytes());
-                    match res {
-                        Ok(_) => println!("Successfully sent response: {}", final_response_to_send),
-                        Err(e) => println!("Error sending  response: {}", e),
+                    match HttpResponse::build_response(&http_request) {
+                        Some(http_response) => {
+                            let final_response_to_send =
+                                HttpResponse::craft_response(&http_response);
+                            let _res = stream.write(final_response_to_send.as_bytes()).unwrap();
+                        }
+                        None => println!("No 'echo' request detected"),
                     }
                 }
             }
