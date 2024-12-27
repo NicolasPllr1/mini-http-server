@@ -1,6 +1,3 @@
-// <protocol> <status-code> <status-text>
-// e.g. HTTP/1.1 200 OK <status-text>
-
 use crate::html_commons::HttpVersion;
 use crate::html_request::HttpRequest;
 use std::fmt::Display;
