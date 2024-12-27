@@ -12,8 +12,3 @@ impl std::fmt::Display for HttpVersion {
         }
     }
 }
-#[derive(Debug)]
-pub struct Header {
-    name: String,
-    value: String,
-}

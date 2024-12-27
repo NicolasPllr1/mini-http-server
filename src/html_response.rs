@@ -1,16 +1,17 @@
 // <protocol> <status-code> <status-text>
 // e.g. HTTP/1.1 200 OK <status-text>
 
-use crate::html_commons::{Header, HttpVersion};
+use crate::html_commons::HttpVersion;
 use crate::html_request::HttpRequest;
+use std::fmt::Display;
 
+#[derive(Debug)]
 pub struct HttpResponse {
     protocol_version: HttpVersion,
     status_code: StatusCode,
     content_type: String,
     content_length: usize,
-    headers: Vec<Header>,
-    body: String,
+    body: Option<String>,
 }
 
 #[derive(Debug)]
@@ -27,61 +28,93 @@ impl std::fmt::Display for StatusCode {
         }
     }
 }
-#[derive(Debug)]
-struct ResponseBody {
-    content_type: String,
-    content_length: String,
+
+pub enum Endpoints {
+    UrlPath,
+    Echo,
+    UserAgent,
+}
+
+pub fn parse_request_target(request_target: &str) -> Option<Endpoints> {
+    match request_target {
+        "/" => Some(Endpoints::UrlPath),
+        s if s.starts_with("/echo/") => Some(Endpoints::Echo),
+        "/user-agent" => Some(Endpoints::UserAgent),
+        _ => None,
+    }
 }
 
 impl HttpResponse {
-    pub fn build_response(http_request: &HttpRequest) -> Option<HttpResponse> {
-        if let Some(to_echo_back) = detect_echo(&http_request.ressource_path) {
-            return Some(HttpResponse {
+    pub fn build_response(http_request: &HttpRequest) -> HttpResponse {
+        let endpoint_requested = parse_request_target(&http_request.request_target);
+
+        match endpoint_requested {
+            Some(Endpoints::UrlPath) => HttpResponse {
                 status_code: StatusCode::Ok,
                 content_type: "text/plain".to_string(),
-                content_length: to_echo_back.len(),
+                content_length: 0,
                 protocol_version: http_request.protocol_version,
-                headers: Vec::new(),
-                body: to_echo_back.to_string(),
-            });
-        } else {
-            return None;
+                body: None,
+            },
+            Some(Endpoints::Echo) => {
+                let to_echo_back = http_request.request_target[6..].to_string(); // '/echo/{str}'
+                HttpResponse {
+                    status_code: StatusCode::Ok,
+                    content_type: "text/plain".to_string(),
+                    content_length: to_echo_back.len(),
+                    protocol_version: http_request.protocol_version,
+                    body: Some(to_echo_back),
+                }
+            }
+            Some(Endpoints::UserAgent) => {
+                let user_agent_body = http_request
+                    .headers
+                    .as_ref()
+                    .expect("User-Agent endpoint requires non-empty heades")
+                    .get("User-Agent")
+                    .expect("User-Agent endpoint expects 'User-Agent' header");
+                HttpResponse {
+                    status_code: StatusCode::Ok,
+                    content_type: "text/plain".to_string(),
+                    content_length: user_agent_body.len(),
+                    protocol_version: http_request.protocol_version,
+                    body: Some(user_agent_body.clone()),
+                }
+            }
+            None => HttpResponse {
+                status_code: StatusCode::NotFound,
+                content_type: "text/plain".to_string(),
+                content_length: 0,
+                protocol_version: http_request.protocol_version,
+                body: None,
+            },
         }
-    }
-
-    pub fn craft_response(http_response: &HttpResponse) -> String {
-        // HTTP/1.1 200 OK\r\n
-        let status_line = format!(
-            "{} {}",
-            http_response.protocol_version, http_response.status_code
-        );
-        let content = format!(
-            "Content-type: {}\r\nContent-Length: {}",
-            http_response.content_type, http_response.content_length
-        );
-
-        format!(
-            "{}\r\n{}\r\n\r\n{}",
-            status_line, content, http_response.body
-        )
     }
 }
 
-// GET request to the /echo/{str} endpoint
-pub fn detect_echo(ressource_path: &str) -> Option<&str> {
-    let parts: Vec<&str> = ressource_path.split("/").collect();
-
-    if parts.len() != 3 {
-        // Invalid request.
-        // Expected /echo/{some_str} --> ["", "echo", "abc"]
-        println!("Detect echo - did not found 3 parts.");
-        println!("Parts: {:?}", parts);
-        println!("From ressource path: {}", ressource_path);
-        return None;
-    } else {
-        // Valid request : /echo/{some_str}  --> ["", "echo", "abc"]
-        let to_echo_back = parts[2];
-        dbg!(to_echo_back);
-        return Some(to_echo_back);
+impl Display for HttpResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.content_length == 0 {
+            match self.status_code {
+                StatusCode::Ok => write!(f, "HTTP/1.1 200 OK\r\n\r\n"),
+                StatusCode::NotFound => write!(f, "HTTP/1.1 404 Not Found\r\n\r\n"),
+            }
+        } else if let Some(body) = &self.body {
+            write!(
+                f,
+                "{} {}\r\nContent-type: {}\r\nContent-Length: {}\r\n\r\n{}",
+                self.protocol_version,
+                self.status_code,
+                self.content_type,
+                self.content_length,
+                body
+            )
+        } else {
+            write!(
+                f,
+                "{} {}\r\nContent-type: {}\r\nContent-Length: {}\r\n\r\n",
+                self.protocol_version, self.status_code, self.content_type, self.content_length,
+            )
+        }
     }
 }

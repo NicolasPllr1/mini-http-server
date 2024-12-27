@@ -4,14 +4,15 @@ use std::net::TcpStream;
 
 use std::io::BufReader;
 
-use crate::html_commons::{Header, HttpVersion};
+use crate::html_commons::HttpVersion;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct HttpRequest {
     pub http_method: HttpMethod,
-    pub ressource_path: String,
+    pub request_target: String,
     pub protocol_version: HttpVersion,
-    pub headers: Vec<Header>,
+    pub headers: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug)]
@@ -24,39 +25,59 @@ impl HttpRequest {
     pub fn new_from_stream(stream: &mut TcpStream) -> HttpRequest {
         let reader = BufReader::new(stream);
 
-        let html_request: Vec<String> = reader
+        let request_parts: Vec<String> = reader
             .lines()
             .map(|line_res| line_res.unwrap())
             .take_while(|line| !is_html_request_last_line(line))
             .collect();
-        dbg!(&html_request);
+        dbg!(&request_parts);
 
-        let (http_method, ressource_path, protocol_version) = match html_request[0]
-            .split(" ")
-            .collect::<Vec<&str>>()[..]
-        {
-            [m, p, v] => (m, p.to_string(), v),
-            _ => panic!("Invalid HTTP request line: must have exactly method, path, and version"),
-        };
+        // Parsing for the *request-line*
+        let request_line = &request_parts[0];
+        let (http_method, request_target, protocol_version) =
+            match request_line.split(" ").collect::<Vec<&str>>()[..] {
+                [m, p, v] => (m, p.to_string(), v),
+                _ => panic!(
+                "Invalid HTTP request-line. Expected: <method> <request-target> <protocol-version>"
+            ),
+            };
 
         let http_method = match http_method {
             "GET" => HttpMethod::GET,
             "POST" => HttpMethod::POST,
-            _ => panic!("Unsupported HTTP method"), // or return an error
+            _ => panic!("Unsupported HTTP method"),
         };
 
-        dbg!(protocol_version);
         let protocol_version = match protocol_version {
             "HTTP/1.1" => HttpVersion::Http1,
             "HTTP/2" => HttpVersion::Http2,
             _ => panic!("Not HTTP/1.1 nor HTTP/2"),
         };
 
+        // Parsing for *headers*
+        let mut headers: HashMap<String, String> = HashMap::new();
+        for content in &request_parts[1..] {
+            if content == "\r\n" {
+                break;
+            } else {
+                let (header_name, header_value) =
+                    content.split_once(":").expect("Invalid header section");
+                headers.insert(header_name.to_string(), header_value.trim().to_string());
+            }
+        }
+
+        // Wrap headers in an Option to signal their presence/abscence in the request
+        let headers = if headers.is_empty() {
+            None
+        } else {
+            Some(headers)
+        };
+
         HttpRequest {
             http_method,
-            ressource_path,
+            request_target,
             protocol_version,
-            headers: Vec::new(),
+            headers,
         }
     }
 }
