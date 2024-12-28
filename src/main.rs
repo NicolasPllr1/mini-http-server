@@ -28,8 +28,10 @@ fn handle_stream(mut stream: TcpStream, data_dir: Arc<String>) {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+    dbg!(&args);
     let data_dir = Arc::new(match args.len() {
         2 => args[1].clone(),
+        3 => args[2].clone(),
         _ => String::new(),
     });
 
