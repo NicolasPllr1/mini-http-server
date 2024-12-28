@@ -1,6 +1,8 @@
 use crate::html_commons::HttpVersion;
 use crate::html_request::HttpRequest;
 use std::fmt::Display;
+use std::thread;
+use std::time::Duration;
 
 #[derive(Debug)]
 pub struct HttpResponse {
@@ -30,6 +32,7 @@ pub enum Endpoints {
     UrlPath,
     Echo,
     UserAgent,
+    Sleep,
 }
 
 pub fn parse_request_target(request_target: &str) -> Option<Endpoints> {
@@ -37,6 +40,7 @@ pub fn parse_request_target(request_target: &str) -> Option<Endpoints> {
         "/" => Some(Endpoints::UrlPath),
         s if s.starts_with("/echo/") => Some(Endpoints::Echo),
         "/user-agent" => Some(Endpoints::UserAgent),
+        "/sleep" => Some(Endpoints::Sleep),
         _ => None,
     }
 }
@@ -76,6 +80,17 @@ impl HttpResponse {
                     content_length: user_agent_body.len(),
                     protocol_version: http_request.protocol_version,
                     body: Some(user_agent_body.clone()),
+                }
+            }
+            Some(Endpoints::Sleep) => {
+                thread::sleep(Duration::from_secs(10));
+                let msg = "Good sleep!".to_string();
+                HttpResponse {
+                    status_code: StatusCode::Ok,
+                    content_type: "text/plain".to_string(),
+                    content_length: msg.len(),
+                    protocol_version: http_request.protocol_version,
+                    body: Some(msg),
                 }
             }
             None => HttpResponse {
