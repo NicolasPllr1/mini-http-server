@@ -30,7 +30,7 @@ impl HttpRequest {
             .map(|line_res| line_res.unwrap())
             .take_while(|line| !is_html_request_last_line(line))
             .collect();
-        dbg!(&request_parts);
+        // dbg!(&request_parts);
 
         // Parsing for the *request-line*
         let request_line = &request_parts[0];
@@ -85,13 +85,13 @@ impl HttpRequest {
 fn is_html_request_last_line(line: &str) -> bool {
     let double_crfl = "\r\n\r\n"; // end-pattern : double CRFL
     if line.ends_with(double_crfl) {
-        println!("Found the double CRFL !");
+        // println!("Found the double CRFL !");
         true
     } else if line.is_empty() {
-        println!("Found empty line : {}", line);
+        // println!("Found empty line : {}", line);
         true
     } else {
-        println!("Not the last line : {}", line);
+        // println!("Not the last line : {}", line);
         false
     }
 }
