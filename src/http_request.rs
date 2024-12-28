@@ -4,7 +4,7 @@ use std::net::TcpStream;
 
 use std::io::BufReader;
 
-use crate::html_commons::HttpVersion;
+use crate::http_commons::HttpVersion;
 use std::collections::HashMap;
 
 #[derive(Debug)]

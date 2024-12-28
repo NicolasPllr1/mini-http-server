@@ -1,6 +1,7 @@
-use crate::html_commons::HttpVersion;
-use crate::html_request::HttpRequest;
+use crate::http_commons::HttpVersion;
+use crate::http_request::HttpRequest;
 use std::fmt::Display;
+use std::fs;
 use std::thread;
 use std::time::Duration;
 
@@ -33,20 +34,34 @@ pub enum Endpoints {
     Echo,
     UserAgent,
     Sleep,
+    File,
 }
 
-pub fn parse_request_target(request_target: &str) -> Option<Endpoints> {
+fn parse_request_target(request_target: &str) -> Option<Endpoints> {
     match request_target {
         "/" => Some(Endpoints::UrlPath),
         s if s.starts_with("/echo/") => Some(Endpoints::Echo),
         "/user-agent" => Some(Endpoints::UserAgent),
         "/sleep" => Some(Endpoints::Sleep),
+        s if s.starts_with("/files/") => Some(Endpoints::File),
         _ => None,
     }
 }
 
+fn get_file_content(http_request: &HttpRequest, data_dir: &str) -> Option<String> {
+    let file_name = http_request
+        .request_target
+        .split("/")
+        .last()
+        .expect("Expected : /files/{filename}");
+
+    let file_path = format!("{}/{}", data_dir, file_name);
+    dbg!(&file_path);
+    fs::read_to_string(file_path).ok()
+}
+
 impl HttpResponse {
-    pub fn build_response(http_request: &HttpRequest) -> HttpResponse {
+    pub fn build_response(http_request: &HttpRequest, data_dir: &str) -> HttpResponse {
         let endpoint_requested = parse_request_target(&http_request.request_target);
 
         match endpoint_requested {
@@ -93,6 +108,22 @@ impl HttpResponse {
                     body: Some(msg),
                 }
             }
+            Some(Endpoints::File) => match get_file_content(&http_request, data_dir) {
+                Some(file_content) => HttpResponse {
+                    status_code: StatusCode::Ok,
+                    content_type: "application/octet-stream".to_string(),
+                    content_length: file_content.as_bytes().len(),
+                    protocol_version: http_request.protocol_version,
+                    body: Some(file_content),
+                },
+                None => HttpResponse {
+                    status_code: StatusCode::NotFound,
+                    content_type: "text/plain".to_string(),
+                    content_length: 0,
+                    protocol_version: http_request.protocol_version,
+                    body: None,
+                },
+            },
             None => HttpResponse {
                 status_code: StatusCode::NotFound,
                 content_type: "text/plain".to_string(),
