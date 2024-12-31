@@ -11,7 +11,7 @@ pub struct HttpRequest {
     pub http_method: HttpMethod,
     pub request_target: String,
     pub protocol_version: HttpVersion,
-    pub headers: Option<HashMap<String, String>>,
+    pub headers: HashMap<String, String>,
     pub body: Option<String>,
 }
 
@@ -73,30 +73,21 @@ impl HttpRequest {
                 headers.insert(header_name.to_string(), header_value.trim().to_string());
             }
         }
-        // Wrap headers in an Option to signal their presence/abscence in the request
-        let headers = if headers.is_empty() {
-            None
-        } else {
-            Some(headers)
-        };
         dbg!(&headers);
 
         // Read the body if any
-        let body: Option<String> = match headers {
-            Some(ref headers) => match headers.get("Content-Length") {
-                Some(n_bytes_str) => {
-                    let n_bytes = n_bytes_str
-                        .parse::<usize>()
-                        .expect("Error parsing the content length");
-                    dbg!(n_bytes);
-                    let mut body_buf = vec![0; n_bytes];
-                    reader
-                        .read_exact(&mut body_buf)
-                        .expect("Could not read body into buffer");
-                    Some(String::from_utf8(body_buf).expect("Invalid utf-8 for body"))
-                }
-                None => None,
-            },
+        let body: Option<String> = match headers.get("Content-Length") {
+            Some(n_bytes_str) => {
+                let n_bytes = n_bytes_str
+                    .parse::<usize>()
+                    .expect("Error parsing the content length");
+                dbg!(n_bytes);
+                let mut body_buf = vec![0; n_bytes];
+                reader
+                    .read_exact(&mut body_buf)
+                    .expect("Could not read body into buffer");
+                Some(String::from_utf8(body_buf).expect("Invalid utf-8 for body"))
+            }
             None => None,
         };
         dbg!(&body);
@@ -108,20 +99,5 @@ impl HttpRequest {
             headers,
             body,
         }
-    }
-}
-
-fn is_html_request_last_line(line: &str) -> bool {
-    let double_crfl = "\r\n\r\n"; // end-pattern : double CRFL
-                                  // dbg!(&line);
-    if line.ends_with(double_crfl) {
-        // println!("Found the double CRFL !");
-        true
-    } else if line.is_empty() {
-        // println!("Found empty line : {}", line);
-        true
-    } else {
-        // println!("Not the last line : {}", line);
-        false
     }
 }

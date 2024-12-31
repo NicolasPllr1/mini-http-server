@@ -12,6 +12,7 @@ pub struct HttpResponse {
     status_code: StatusCode,
     content_type: String,
     content_length: usize,
+    content_encoding: Option<ContentEncoding>,
     body: Option<String>,
 }
 
@@ -28,6 +29,19 @@ impl std::fmt::Display for StatusCode {
             StatusCode::Ok => write!(f, "200 OK"),
             StatusCode::NotFound => write!(f, "404 Not Found"),
             StatusCode::Created => write!(f, "201 Created"),
+        }
+    }
+}
+
+#[derive(Debug)]
+enum ContentEncoding {
+    GZip,
+}
+
+impl std::fmt::Display for ContentEncoding {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            ContentEncoding::GZip => write!(f, "Content-Encoding: gzip"),
         }
     }
 }
@@ -70,11 +84,18 @@ fn get_file_content(http_request: &HttpRequest, data_dir: &str) -> Option<String
 impl HttpResponse {
     pub fn build_response(http_request: &HttpRequest, data_dir: &str) -> HttpResponse {
         let endpoint_requested = parse_request_target(&http_request.request_target);
+        let content_encoding = match http_request.headers.get("Accept-Encoding") {
+            Some(compression_encoding) if compression_encoding == "gzip" => {
+                Some(ContentEncoding::GZip)
+            }
+            _ => None,
+        };
 
         match endpoint_requested {
             Some(Endpoints::UrlPath) => HttpResponse {
                 status_code: StatusCode::Ok,
                 content_type: "text/plain".to_string(),
+                content_encoding,
                 content_length: 0,
                 protocol_version: http_request.protocol_version,
                 body: None,
@@ -84,6 +105,7 @@ impl HttpResponse {
                 HttpResponse {
                     status_code: StatusCode::Ok,
                     content_type: "text/plain".to_string(),
+                    content_encoding,
                     content_length: to_echo_back.len(),
                     protocol_version: http_request.protocol_version,
                     body: Some(to_echo_back),
@@ -92,13 +114,12 @@ impl HttpResponse {
             Some(Endpoints::UserAgent) => {
                 let user_agent_body = http_request
                     .headers
-                    .as_ref()
-                    .expect("User-Agent endpoint requires non-empty heades")
                     .get("User-Agent")
                     .expect("User-Agent endpoint expects 'User-Agent' header");
                 HttpResponse {
                     status_code: StatusCode::Ok,
                     content_type: "text/plain".to_string(),
+                    content_encoding,
                     content_length: user_agent_body.len(),
                     protocol_version: http_request.protocol_version,
                     body: Some(user_agent_body.clone()),
@@ -110,6 +131,7 @@ impl HttpResponse {
                 HttpResponse {
                     status_code: StatusCode::Ok,
                     content_type: "text/plain".to_string(),
+                    content_encoding,
                     content_length: msg.len(),
                     protocol_version: http_request.protocol_version,
                     body: Some(msg),
@@ -120,6 +142,7 @@ impl HttpResponse {
                     Some(file_content) => HttpResponse {
                         status_code: StatusCode::Ok,
                         content_type: "application/octet-stream".to_string(),
+                        content_encoding,
                         content_length: file_content.as_bytes().len(),
                         protocol_version: http_request.protocol_version,
                         body: Some(file_content),
@@ -127,6 +150,7 @@ impl HttpResponse {
                     None => HttpResponse {
                         status_code: StatusCode::NotFound,
                         content_type: "text/plain".to_string(),
+                        content_encoding,
                         content_length: 0,
                         protocol_version: http_request.protocol_version,
                         body: None,
@@ -143,6 +167,7 @@ impl HttpResponse {
                         Ok(_) => HttpResponse {
                             status_code: StatusCode::Created,
                             content_type: "application/octet-stream".to_string(),
+                            content_encoding,
                             content_length: 0,
                             protocol_version: http_request.protocol_version,
                             body: None,
@@ -150,6 +175,7 @@ impl HttpResponse {
                         Err(_) => HttpResponse {
                             status_code: StatusCode::NotFound,
                             content_type: "text/plain".to_string(),
+                            content_encoding,
                             content_length: 0,
                             protocol_version: http_request.protocol_version,
                             body: None,
@@ -160,6 +186,7 @@ impl HttpResponse {
             None => HttpResponse {
                 status_code: StatusCode::NotFound,
                 content_type: "text/plain".to_string(),
+                content_encoding,
                 content_length: 0,
                 protocol_version: http_request.protocol_version,
                 body: None,
@@ -175,12 +202,17 @@ impl Display for HttpResponse {
         } else {
             write!(
                 f,
-                "{} {}\r\nContent-type: {}\r\nContent-Length: {}\r\n\r\n{}",
+                "{} {}\r\nContent-type: {}\r\n{}Content-Length: {}\r\n\r\n{}",
                 self.protocol_version,
                 self.status_code,
                 self.content_type,
+                if let Some(encoding) = &self.content_encoding {
+                    format!("{}\r\n", encoding)
+                } else {
+                    String::new()
+                },
                 self.content_length,
-                self.body.clone().unwrap_or(String::new()),
+                self.body.clone().unwrap_or_default(),
             )
         }
     }
