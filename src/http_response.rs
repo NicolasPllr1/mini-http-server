@@ -1,4 +1,5 @@
 use crate::http_commons::HttpVersion;
+use crate::http_request::HttpMethod;
 use crate::http_request::HttpRequest;
 use std::fmt::Display;
 use std::fs;
@@ -18,6 +19,7 @@ pub struct HttpResponse {
 enum StatusCode {
     Ok,
     NotFound,
+    Created,
 }
 
 impl std::fmt::Display for StatusCode {
@@ -25,6 +27,7 @@ impl std::fmt::Display for StatusCode {
         match self {
             StatusCode::Ok => write!(f, "200 OK"),
             StatusCode::NotFound => write!(f, "404 Not Found"),
+            StatusCode::Created => write!(f, "201 Created"),
         }
     }
 }
@@ -48,14 +51,18 @@ fn parse_request_target(request_target: &str) -> Option<Endpoints> {
     }
 }
 
-fn get_file_content(http_request: &HttpRequest, data_dir: &str) -> Option<String> {
-    let file_name = http_request
+fn get_target_filename(http_request: &HttpRequest) -> Option<&str> {
+    let filename = http_request
         .request_target
         .split("/")
         .last()
         .expect("Expected : /files/{filename}");
+    Some(filename)
+}
 
-    let file_path = format!("{}/{}", data_dir, file_name);
+fn get_file_content(http_request: &HttpRequest, data_dir: &str) -> Option<String> {
+    let filename = get_target_filename(http_request).unwrap();
+    let file_path = format!("{}/{}", data_dir, filename);
     dbg!(&file_path);
     fs::read_to_string(file_path).ok()
 }
@@ -108,21 +115,47 @@ impl HttpResponse {
                     body: Some(msg),
                 }
             }
-            Some(Endpoints::File) => match get_file_content(&http_request, data_dir) {
-                Some(file_content) => HttpResponse {
-                    status_code: StatusCode::Ok,
-                    content_type: "application/octet-stream".to_string(),
-                    content_length: file_content.as_bytes().len(),
-                    protocol_version: http_request.protocol_version,
-                    body: Some(file_content),
+            Some(Endpoints::File) => match http_request.http_method {
+                HttpMethod::GET => match get_file_content(&http_request, data_dir) {
+                    Some(file_content) => HttpResponse {
+                        status_code: StatusCode::Ok,
+                        content_type: "application/octet-stream".to_string(),
+                        content_length: file_content.as_bytes().len(),
+                        protocol_version: http_request.protocol_version,
+                        body: Some(file_content),
+                    },
+                    None => HttpResponse {
+                        status_code: StatusCode::NotFound,
+                        content_type: "text/plain".to_string(),
+                        content_length: 0,
+                        protocol_version: http_request.protocol_version,
+                        body: None,
+                    },
                 },
-                None => HttpResponse {
-                    status_code: StatusCode::NotFound,
-                    content_type: "text/plain".to_string(),
-                    content_length: 0,
-                    protocol_version: http_request.protocol_version,
-                    body: None,
-                },
+                HttpMethod::POST => {
+                    let filename = get_target_filename(&http_request).unwrap();
+                    let path = format!("{}/{}", data_dir, filename);
+                    let content = http_request
+                        .body
+                        .clone()
+                        .expect("Body should have been provided");
+                    match fs::write(path, content) {
+                        Ok(_) => HttpResponse {
+                            status_code: StatusCode::Created,
+                            content_type: "application/octet-stream".to_string(),
+                            content_length: 0,
+                            protocol_version: http_request.protocol_version,
+                            body: None,
+                        },
+                        Err(_) => HttpResponse {
+                            status_code: StatusCode::NotFound,
+                            content_type: "text/plain".to_string(),
+                            content_length: 0,
+                            protocol_version: http_request.protocol_version,
+                            body: None,
+                        },
+                    }
+                }
             },
             None => HttpResponse {
                 status_code: StatusCode::NotFound,
@@ -138,11 +171,8 @@ impl HttpResponse {
 impl Display for HttpResponse {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.content_length == 0 {
-            match self.status_code {
-                StatusCode::Ok => write!(f, "HTTP/1.1 200 OK\r\n\r\n"),
-                StatusCode::NotFound => write!(f, "HTTP/1.1 404 Not Found\r\n\r\n"),
-            }
-        } else if let Some(body) = &self.body {
+            write!(f, "{} {}\r\n\r\n", self.protocol_version, self.status_code)
+        } else {
             write!(
                 f,
                 "{} {}\r\nContent-type: {}\r\nContent-Length: {}\r\n\r\n{}",
@@ -150,13 +180,7 @@ impl Display for HttpResponse {
                 self.status_code,
                 self.content_type,
                 self.content_length,
-                body
-            )
-        } else {
-            write!(
-                f,
-                "{} {}\r\nContent-type: {}\r\nContent-Length: {}\r\n\r\n",
-                self.protocol_version, self.status_code, self.content_type, self.content_length,
+                self.body.clone().unwrap_or(String::new()),
             )
         }
     }
