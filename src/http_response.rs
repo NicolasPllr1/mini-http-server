@@ -237,7 +237,7 @@ impl Display for HttpResponse {
                         self.status_code,
                         self.content_type,
                         encoding_scheme,
-                        encoded_body_hexa.len(),
+                        encoded_body_bytes.len(),
                         encoded_body_hexa,
                     )
                 }
