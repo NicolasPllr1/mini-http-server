@@ -230,6 +230,14 @@ impl Display for HttpResponse {
                     //     .map(|b| format!("{:02X}", b).to_string())
                     //     .collect::<Vec<String>>()
                     //     .join(" ");
+                    let encoded_body_hexa =
+                        encoded_body_bytes.iter().fold(String::new(), |acc, b| {
+                            if acc.is_empty() {
+                                format!("{:02x}", b)
+                            } else {
+                                format!("{}{:02x}", acc, b)
+                            }
+                        });
                     write!(
                         f,
                         "{} {}\r\nContent-Type: {}\r\n{}\r\nContent-Length: {}\r\n\r\n{}",
@@ -238,7 +246,8 @@ impl Display for HttpResponse {
                         self.content_type,
                         encoding_scheme,
                         encoded_body_bytes.len(),
-                        String::from_utf8_lossy(&encoded_body_bytes)
+                        encoded_body_hexa,
+                        // String::from_utf8_lossy(&encoded_body_bytes)
                     )
                 }
                 None => {
