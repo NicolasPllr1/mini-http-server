@@ -6,6 +6,7 @@ use http_request::HttpRequest;
 mod http_response;
 use http_response::HttpResponse;
 
+mod encoding;
 mod http_commons;
 
 use std::env;

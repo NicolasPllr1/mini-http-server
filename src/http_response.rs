@@ -1,3 +1,4 @@
+use crate::encoding::ContentEncoding;
 use crate::http_commons::HttpVersion;
 use crate::http_request::HttpMethod;
 use crate::http_request::HttpRequest;
@@ -29,19 +30,6 @@ impl std::fmt::Display for StatusCode {
             StatusCode::Ok => write!(f, "200 OK"),
             StatusCode::NotFound => write!(f, "404 Not Found"),
             StatusCode::Created => write!(f, "201 Created"),
-        }
-    }
-}
-
-#[derive(Debug)]
-enum ContentEncoding {
-    GZip,
-}
-
-impl std::fmt::Display for ContentEncoding {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            ContentEncoding::GZip => write!(f, "Content-Encoding: gzip"),
         }
     }
 }
@@ -233,20 +221,31 @@ impl Display for HttpResponse {
         if self.content_length == 0 {
             write!(f, "{} {}\r\n\r\n", self.protocol_version, self.status_code)
         } else {
-            write!(
-                f,
-                "{} {}\r\nContent-type: {}\r\n{}Content-Length: {}\r\n\r\n{}",
-                self.protocol_version,
-                self.status_code,
-                self.content_type,
-                if let Some(encoding) = &self.content_encoding {
-                    format!("{}\r\n", encoding)
-                } else {
-                    String::new()
-                },
-                self.content_length,
-                self.body.clone().unwrap_or_default(),
-            )
+            match &self.content_encoding {
+                Some(encoding_scheme) => {
+                    write!(
+                        f,
+                        "{} {}\r\nContent-type: {}\r\n{}\r\nContent-Length: {}\r\n\r\n{:02x?}",
+                        self.protocol_version,
+                        self.status_code,
+                        self.content_type,
+                        encoding_scheme,
+                        self.content_length,
+                        encoding_scheme.encode_body(&self.body.as_deref().unwrap_or_default()),
+                    )
+                }
+                None => {
+                    write!(
+                        f,
+                        "{} {}\r\nContent-type: {}\r\nContent-Length: {}\r\n\r\n{}",
+                        self.protocol_version,
+                        self.status_code,
+                        self.content_type,
+                        self.content_length,
+                        self.body.clone().unwrap_or_default(),
+                    )
+                }
+            }
         }
     }
 }
