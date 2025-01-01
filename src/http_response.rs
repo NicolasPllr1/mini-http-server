@@ -223,6 +223,8 @@ impl Display for HttpResponse {
         } else {
             match &self.content_encoding {
                 Some(encoding_scheme) => {
+                    let encoded_body_to_send =
+                        encoding_scheme.encode_body(&self.body.as_deref().unwrap_or_default());
                     write!(
                         f,
                         "{} {}\r\nContent-type: {}\r\n{}\r\nContent-Length: {}\r\n\r\n{:02x?}",
@@ -230,8 +232,8 @@ impl Display for HttpResponse {
                         self.status_code,
                         self.content_type,
                         encoding_scheme,
-                        self.content_length,
-                        encoding_scheme.encode_body(&self.body.as_deref().unwrap_or_default()),
+                        encoded_body_to_send.len(),
+                        encoded_body_to_send,
                     )
                 }
                 None => {
