@@ -227,7 +227,7 @@ impl Display for HttpResponse {
                         encoding_scheme.encode_body(&self.body.as_deref().unwrap_or_default());
                     write!(
                         f,
-                        "{} {}\r\nContent-type: {}\r\n{}\r\nContent-Length: {}\r\n\r\n{:02x?}",
+                        "{} {}\r\nContent-type: {}\r\n{}\r\nContent-Length: {}\r\n\r\n{:02X?}",
                         self.protocol_version,
                         self.status_code,
                         self.content_type,
