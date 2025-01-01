@@ -230,25 +230,29 @@ impl Display for HttpResponse {
                     //     .map(|b| format!("{:02X}", b).to_string())
                     //     .collect::<Vec<String>>()
                     //     .join(" ");
-                    let encoded_body_hexa =
-                        encoded_body_bytes.iter().fold(String::new(), |acc, b| {
-                            if acc.is_empty() {
-                                format!("{:02X}", b)
-                            } else {
-                                format!("{}{:02X}", acc, b)
-                            }
-                        });
+                    // let encoded_body_hexa =
+                    //     encoded_body_bytes.iter().fold(String::new(), |acc, b| {
+                    //         if acc.is_empty() {
+                    //             format!("{:02X}", b)
+                    //         } else {
+                    //             format!("{}{:02X}", acc, b)
+                    //         }
+                    //     });
                     write!(
                         f,
-                        "{} {}\r\nContent-Type: {}\r\n{}\r\nContent-Length: {}\r\n\r\n{}",
+                        "{} {}\r\nContent-Type: {}\r\n{}\r\nContent-Length: {}\r\n\r\n",
                         self.protocol_version,
                         self.status_code,
                         self.content_type,
                         encoding_scheme,
                         encoded_body_bytes.len(),
-                        encoded_body_hexa,
+                        // String::from_utf8_lossy(&encoded_body_bytes),
                         // String::from_utf8_lossy(&encoded_body_bytes)
-                    )
+                    )?;
+                    for &byte in encoded_body_bytes.iter() {
+                        write!(f, "{}", unsafe { char::from_u32_unchecked(byte as u32) })?;
+                    }
+                    Ok(())
                 }
                 None => {
                     write!(
