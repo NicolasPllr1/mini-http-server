@@ -233,9 +233,9 @@ impl Display for HttpResponse {
                     let encoded_body_hexa =
                         encoded_body_bytes.iter().fold(String::new(), |acc, b| {
                             if acc.is_empty() {
-                                format!("{:02x}", b)
+                                format!("{:02X}", b)
                             } else {
-                                format!("{}{:02x}", acc, b)
+                                format!("{}{:02X}", acc, b)
                             }
                         });
                     write!(
