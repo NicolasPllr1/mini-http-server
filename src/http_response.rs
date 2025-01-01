@@ -232,7 +232,7 @@ impl Display for HttpResponse {
                         .join(" ");
                     write!(
                         f,
-                        "{} {}\r\nContent-type: {}\r\n{}\r\nContent-Length: {}\r\n\r\n{:02X?}",
+                        "{} {}\r\nContent-Type: {}\r\n{}\r\nContent-Length: {}\r\n\r\n{:02X?}",
                         self.protocol_version,
                         self.status_code,
                         self.content_type,
@@ -244,7 +244,7 @@ impl Display for HttpResponse {
                 None => {
                     write!(
                         f,
-                        "{} {}\r\nContent-type: {}\r\nContent-Length: {}\r\n\r\n{}",
+                        "{} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\n\r\n{}",
                         self.protocol_version,
                         self.status_code,
                         self.content_type,
