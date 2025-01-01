@@ -81,15 +81,48 @@ fn get_file_content(http_request: &HttpRequest, data_dir: &str) -> Option<String
     fs::read_to_string(file_path).ok()
 }
 
+fn parse_encoding_scheme(encoding_schemes_raw_str: &str) -> Option<ContentEncoding> {
+    // encoding_schemes : either a single value OR a list of values
+    let encoding_schemes: Vec<&str> = encoding_schemes_raw_str
+        .split(",")
+        .map(|s| s.trim())
+        .collect();
+
+    if encoding_schemes.len() == 1 {
+        // Got a *single* compression scheme
+        match encoding_schemes[0] {
+            compression_encoding if compression_encoding == "gzip" => Some(ContentEncoding::GZip),
+            other_comp_scheme => {
+                println!("Encoding scheme is not gzip: {}", other_comp_scheme);
+                None
+            }
+        }
+    } else {
+        // Got a *list* of compression schemes
+        if encoding_schemes.contains(&"gzip") {
+            println!(
+                "Found gzip in the list of compression schemes: {:?}",
+                encoding_schemes
+            );
+            return Some(ContentEncoding::GZip);
+        } else {
+            // Only gzip is available for now
+            println!(
+                "Did NOT found gzip in the list of compression schemes: {:?}",
+                encoding_schemes
+            );
+            return None;
+        }
+    }
+}
+
 impl HttpResponse {
     pub fn build_response(http_request: &HttpRequest, data_dir: &str) -> HttpResponse {
         let endpoint_requested = parse_request_target(&http_request.request_target);
-        let content_encoding = match http_request.headers.get("Accept-Encoding") {
-            Some(compression_encoding) if compression_encoding == "gzip" => {
-                Some(ContentEncoding::GZip)
-            }
-            _ => None,
-        };
+        let content_encoding = http_request
+            .headers
+            .get("Accept-Encoding")
+            .map_or(None, |s| parse_encoding_scheme(&s));
 
         match endpoint_requested {
             Some(Endpoints::UrlPath) => HttpResponse {
