@@ -223,8 +223,13 @@ impl Display for HttpResponse {
         } else {
             match &self.content_encoding {
                 Some(encoding_scheme) => {
-                    let encoded_body_to_send =
+                    let encoded_body_bytes =
                         encoding_scheme.encode_body(&self.body.as_deref().unwrap_or_default());
+                    let encoded_body_hexa = encoded_body_bytes
+                        .iter()
+                        .map(|b| format!("{:02X}", b).to_string())
+                        .collect::<Vec<String>>()
+                        .join(" ");
                     write!(
                         f,
                         "{} {}\r\nContent-type: {}\r\n{}\r\nContent-Length: {}\r\n\r\n{:02X?}",
@@ -232,8 +237,8 @@ impl Display for HttpResponse {
                         self.status_code,
                         self.content_type,
                         encoding_scheme,
-                        encoded_body_to_send.len(),
-                        encoded_body_to_send,
+                        encoded_body_hexa.len(),
+                        encoded_body_hexa,
                     )
                 }
                 None => {
