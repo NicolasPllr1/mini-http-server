@@ -230,21 +230,15 @@ impl HttpResponse {
                 Some(encoding_scheme) => {
                     let encoded_body_bytes =
                         encoding_scheme.encode_body(&self.body.as_deref().unwrap_or_default());
-                    let encoded_body_hexa = encoded_body_bytes
-                        .iter()
-                        .map(|b| format!("{:02x}", b).to_string())
-                        .collect::<Vec<String>>()
-                        .join(" ");
                     // First write *headers*
                     write!(
                         writer,
-                        "{} {}\r\ncontent-type: {}\r\n{}\r\ncontent-length: {}\r\n\r\n{}",
+                        "{} {}\r\ncontent-type: {}\r\n{}\r\ncontent-length: {}\r\n\r\n",
                         self.protocol_version,
                         self.status_code,
                         self.content_type,
                         encoding_scheme,
                         encoded_body_bytes.len(),
-                        encoded_body_hexa,
                     )?;
                     // Second write the *encoded-body* (raw bytes directly)
                     writer.write_all(&encoded_body_bytes)
