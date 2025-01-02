@@ -10,7 +10,6 @@ mod encoding;
 mod http_commons;
 
 use std::env;
-use std::io::Write;
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 
@@ -21,10 +20,11 @@ fn handle_stream(mut stream: TcpStream, data_dir: Arc<String>) {
     // dbg!(&http_request);
 
     let http_response = HttpResponse::build_response(&http_request, &data_dir);
-    // dbg!(&http_response);
-    let final_response = http_response.to_string();
-    dbg!(&final_response);
-    let _res = stream.write(&final_response.into_bytes());
+    dbg!(&http_response);
+    let final_response_str = http_response.to_string();
+    dbg!(&final_response_str);
+    // let _res = stream.write(&final_response.into_bytes());
+    let _ = http_response.write_to(&mut stream);
 }
 
 fn main() {

@@ -4,6 +4,7 @@ use crate::http_request::HttpMethod;
 use crate::http_request::HttpRequest;
 use std::fmt::Display;
 use std::fs;
+use std::io::Write;
 use std::thread;
 use std::time::Duration;
 
@@ -216,6 +217,54 @@ impl HttpResponse {
     }
 }
 
+impl HttpResponse {
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        if self.content_length == 0 {
+            write!(
+                writer,
+                "{} {}\r\n\r\n",
+                self.protocol_version, self.status_code
+            )
+        } else {
+            match &self.content_encoding {
+                Some(encoding_scheme) => {
+                    let encoded_body_bytes =
+                        encoding_scheme.encode_body(&self.body.as_deref().unwrap_or_default());
+                    let encoded_body_hexa = encoded_body_bytes
+                        .iter()
+                        .map(|b| format!("{:02x}", b).to_string())
+                        .collect::<Vec<String>>()
+                        .join(" ");
+                    // First write *headers*
+                    write!(
+                        writer,
+                        "{} {}\r\ncontent-type: {}\r\n{}\r\ncontent-length: {}\r\n\r\n{}",
+                        self.protocol_version,
+                        self.status_code,
+                        self.content_type,
+                        encoding_scheme,
+                        encoded_body_bytes.len(),
+                        encoded_body_hexa,
+                    )?;
+                    // Second write the *encoded-body* (raw bytes directly)
+                    writer.write_all(&encoded_body_bytes)
+                }
+                None => {
+                    write!(
+                        writer,
+                        "{} {}\r\ncontent-type: {}\r\ncontent-length: {}\r\n\r\n{}",
+                        self.protocol_version,
+                        self.status_code,
+                        self.content_type,
+                        self.content_length,
+                        self.body.clone().unwrap_or_default(),
+                    )
+                }
+            }
+        }
+    }
+}
+
 impl Display for HttpResponse {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.content_length == 0 {
@@ -225,39 +274,26 @@ impl Display for HttpResponse {
                 Some(encoding_scheme) => {
                     let encoded_body_bytes =
                         encoding_scheme.encode_body(&self.body.as_deref().unwrap_or_default());
-                    // let encoded_body_hexa = encoded_body_bytes
-                    //     .iter()
-                    //     .map(|b| format!("{:02X}", b).to_string())
-                    //     .collect::<Vec<String>>()
-                    //     .join(" ");
-                    // let encoded_body_hexa =
-                    //     encoded_body_bytes.iter().fold(String::new(), |acc, b| {
-                    //         if acc.is_empty() {
-                    //             format!("{:02X}", b)
-                    //         } else {
-                    //             format!("{}{:02X}", acc, b)
-                    //         }
-                    //     });
+                    let encoded_body_hexa = encoded_body_bytes
+                        .iter()
+                        .map(|b| format!("{:02x}", b).to_string())
+                        .collect::<Vec<String>>()
+                        .join(" ");
                     write!(
                         f,
-                        "{} {}\r\nContent-Type: {}\r\n{}\r\nContent-Length: {}\r\n\r\n",
+                        "{} {}\r\ncontent-type: {}\r\n{}\r\ncontent-length: {}\r\n\r\n{}",
                         self.protocol_version,
                         self.status_code,
                         self.content_type,
                         encoding_scheme,
                         encoded_body_bytes.len(),
-                        // String::from_utf8_lossy(&encoded_body_bytes),
-                        // String::from_utf8_lossy(&encoded_body_bytes)
-                    )?;
-                    for &byte in encoded_body_bytes.iter() {
-                        write!(f, "{}", unsafe { char::from_u32_unchecked(byte as u32) })?;
-                    }
-                    Ok(())
+                        encoded_body_hexa,
+                    )
                 }
                 None => {
                     write!(
                         f,
-                        "{} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\n\r\n{}",
+                        "{} {}\r\ncontent-type: {}\r\ncontent-length: {}\r\n\r\n{}",
                         self.protocol_version,
                         self.status_code,
                         self.content_type,

@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use std::io::prelude::*;
@@ -16,14 +17,15 @@ impl std::fmt::Display for ContentEncoding {
 }
 
 impl ContentEncoding {
-    pub fn encode_body(&self, body: &str) -> Vec<u8> {
+    pub fn encode_body(&self, body: &str) -> Bytes {
         match self {
             ContentEncoding::GZip => gzip_encode_body(body).unwrap_or_default(),
         }
     }
 }
-pub fn gzip_encode_body(body: &str) -> Option<Vec<u8>> {
+pub fn gzip_encode_body(body: &str) -> Option<Bytes> {
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+    println!("Body to encode: {}", &body);
     match encoder.write_all(body.as_bytes()) {
         Ok(_) => {
             println!("Successful gzip compression started");
@@ -37,7 +39,7 @@ pub fn gzip_encode_body(body: &str) -> Option<Vec<u8>> {
     let compressed_body = match encoder.finish() {
         Ok(encoded_bytes) => {
             println!("Gzip compression successfull");
-            Some(encoded_bytes)
+            Some(Bytes::from(encoded_bytes))
         }
         Err(e) => {
             println!("Error during the gzip-compression : {}", e);
