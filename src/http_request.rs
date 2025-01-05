@@ -1,10 +1,8 @@
-use std::io::prelude::*;
-use std::net::TcpStream;
-
-use std::io::BufReader;
-
 use crate::http_commons::HttpVersion;
+
 use std::collections::HashMap;
+use std::io::{BufRead, BufReader, Read};
+use std::net::TcpStream;
 
 #[derive(Debug)]
 pub struct HttpRequest {
@@ -24,12 +22,6 @@ pub enum HttpMethod {
 impl HttpRequest {
     pub fn new_from_stream(stream: &mut TcpStream) -> HttpRequest {
         let mut reader = BufReader::new(&mut *stream);
-        // let request_parts: Vec<String> = reader
-        //     .lines()
-        //     .map(|line_res| line_res.unwrap())
-        //     .take_while(|line| !is_html_request_last_line(line))
-        //     .collect();
-        // dbg!(&request_parts);
 
         // Read the *request-line*
         let mut request_line = String::new();
@@ -52,10 +44,9 @@ impl HttpRequest {
             "POST" => HttpMethod::POST,
             _ => panic!("Unsupported HTTP method"),
         };
-        dbg!(&http_method);
 
         let protocol_version = match protocol_version {
-            "HTTP/1.1" => HttpVersion::Http1,
+            "HTTP/1.1" => HttpVersion::Http11,
             "HTTP/2" => HttpVersion::Http2,
             _ => panic!("Not HTTP/1.1 nor HTTP/2. Got: {}", protocol_version),
         };
@@ -73,7 +64,6 @@ impl HttpRequest {
                 headers.insert(header_name.to_string(), header_value.trim().to_string());
             }
         }
-        dbg!(&headers);
 
         // Read the body if any
         let body: Option<String> = match headers.get("Content-Length") {
@@ -81,7 +71,6 @@ impl HttpRequest {
                 let n_bytes = n_bytes_str
                     .parse::<usize>()
                     .expect("Error parsing the content length");
-                dbg!(n_bytes);
                 let mut body_buf = vec![0; n_bytes];
                 reader
                     .read_exact(&mut body_buf)
@@ -90,7 +79,6 @@ impl HttpRequest {
             }
             None => None,
         };
-        dbg!(&body);
 
         HttpRequest {
             http_method,

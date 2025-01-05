@@ -2,11 +2,12 @@ use crate::encoding::ContentEncoding;
 use crate::http_commons::HttpVersion;
 use crate::http_request::HttpMethod;
 use crate::http_request::HttpRequest;
+
 use std::fmt::Display;
 use std::fs;
 use std::io::Write;
 use std::thread;
-use std::time::Duration;
+use std::time::Duration; // for the 'Sleep' endpoint (used to test multi-threading)
 
 #[derive(Debug)]
 pub struct HttpResponse {
@@ -25,16 +26,6 @@ enum StatusCode {
     Created,
 }
 
-impl std::fmt::Display for StatusCode {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            StatusCode::Ok => write!(f, "200 OK"),
-            StatusCode::NotFound => write!(f, "404 Not Found"),
-            StatusCode::Created => write!(f, "201 Created"),
-        }
-    }
-}
-
 pub enum Endpoints {
     UrlPath,
     Echo,
@@ -43,75 +34,14 @@ pub enum Endpoints {
     File,
 }
 
-fn parse_request_target(request_target: &str) -> Option<Endpoints> {
-    match request_target {
-        "/" => Some(Endpoints::UrlPath),
-        s if s.starts_with("/echo/") => Some(Endpoints::Echo),
-        "/user-agent" => Some(Endpoints::UserAgent),
-        "/sleep" => Some(Endpoints::Sleep),
-        s if s.starts_with("/files/") => Some(Endpoints::File),
-        _ => None,
-    }
-}
-
-fn get_target_filename(http_request: &HttpRequest) -> Option<&str> {
-    let filename = http_request
-        .request_target
-        .split("/")
-        .last()
-        .expect("Expected : /files/{filename}");
-    Some(filename)
-}
-
-fn get_file_content(http_request: &HttpRequest, data_dir: &str) -> Option<String> {
-    let filename = get_target_filename(http_request).unwrap();
-    let file_path = format!("{}/{}", data_dir, filename);
-    dbg!(&file_path);
-    fs::read_to_string(file_path).ok()
-}
-
-fn parse_encoding_scheme(encoding_schemes_raw_str: &str) -> Option<ContentEncoding> {
-    // encoding_schemes : either a single value OR a list of values
-    let encoding_schemes: Vec<&str> = encoding_schemes_raw_str
-        .split(",")
-        .map(|s| s.trim())
-        .collect();
-
-    if encoding_schemes.len() == 1 {
-        // Got a *single* compression scheme
-        match encoding_schemes[0] {
-            compression_encoding if compression_encoding == "gzip" => Some(ContentEncoding::GZip),
-            other_comp_scheme => {
-                println!("Encoding scheme is not gzip: {}", other_comp_scheme);
-                None
-            }
-        }
-    } else {
-        // Got a *list* of compression schemes
-        if encoding_schemes.contains(&"gzip") {
-            println!(
-                "Found gzip in the list of compression schemes: {:?}",
-                encoding_schemes
-            );
-            return Some(ContentEncoding::GZip);
-        } else {
-            // Only gzip is available for now
-            println!(
-                "Did NOT found gzip in the list of compression schemes: {:?}",
-                encoding_schemes
-            );
-            return None;
-        }
-    }
-}
-
+// Public API
 impl HttpResponse {
     pub fn build_response(http_request: &HttpRequest, data_dir: &str) -> HttpResponse {
-        let endpoint_requested = parse_request_target(&http_request.request_target);
+        let endpoint_requested = Self::parse_request_target(&http_request.request_target);
         let content_encoding = http_request
             .headers
             .get("Accept-Encoding")
-            .map_or(None, |s| parse_encoding_scheme(&s));
+            .map_or(None, |s| Self::parse_encoding_scheme(&s));
 
         match endpoint_requested {
             Some(Endpoints::UrlPath) => HttpResponse {
@@ -160,7 +90,7 @@ impl HttpResponse {
                 }
             }
             Some(Endpoints::File) => match http_request.http_method {
-                HttpMethod::GET => match get_file_content(&http_request, data_dir) {
+                HttpMethod::GET => match Self::get_file_content(&http_request, data_dir) {
                     Some(file_content) => HttpResponse {
                         status_code: StatusCode::Ok,
                         content_type: "application/octet-stream".to_string(),
@@ -179,7 +109,7 @@ impl HttpResponse {
                     },
                 },
                 HttpMethod::POST => {
-                    let filename = get_target_filename(&http_request).unwrap();
+                    let filename = Self::get_target_filename(&http_request).unwrap();
                     let path = format!("{}/{}", data_dir, filename);
                     let content = http_request
                         .body
@@ -215,9 +145,7 @@ impl HttpResponse {
             },
         }
     }
-}
 
-impl HttpResponse {
     pub fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
         if self.content_length == 0 {
             write!(
@@ -255,6 +183,83 @@ impl HttpResponse {
                     )
                 }
             }
+        }
+    }
+}
+
+// Private utils
+impl HttpResponse {
+    fn parse_request_target(request_target: &str) -> Option<Endpoints> {
+        match request_target {
+            "/" => Some(Endpoints::UrlPath),
+            s if s.starts_with("/echo/") => Some(Endpoints::Echo),
+            "/user-agent" => Some(Endpoints::UserAgent),
+            "/sleep" => Some(Endpoints::Sleep),
+            s if s.starts_with("/files/") => Some(Endpoints::File),
+            _ => None,
+        }
+    }
+
+    fn get_target_filename(http_request: &HttpRequest) -> Option<&str> {
+        let filename = http_request
+            .request_target
+            .split("/")
+            .last()
+            .expect("Expected : /files/{filename}");
+        Some(filename)
+    }
+
+    fn get_file_content(http_request: &HttpRequest, data_dir: &str) -> Option<String> {
+        let filename = Self::get_target_filename(http_request).unwrap();
+        let file_path = format!("{}/{}", data_dir, filename);
+        dbg!(&file_path);
+        fs::read_to_string(file_path).ok()
+    }
+
+    fn parse_encoding_scheme(encoding_schemes_raw_str: &str) -> Option<ContentEncoding> {
+        // encoding_schemes : either a single value OR a list of values
+        let encoding_schemes: Vec<&str> = encoding_schemes_raw_str
+            .split(",")
+            .map(|s| s.trim())
+            .collect();
+
+        if encoding_schemes.len() == 1 {
+            // Got a *single* compression scheme
+            match encoding_schemes[0] {
+                compression_encoding if compression_encoding == "gzip" => {
+                    Some(ContentEncoding::GZip)
+                }
+                other_comp_scheme => {
+                    println!("Encoding scheme is not gzip: {}", other_comp_scheme);
+                    None
+                }
+            }
+        } else {
+            // Got a *list* of compression schemes
+            if encoding_schemes.contains(&"gzip") {
+                println!(
+                    "Found gzip in the list of compression schemes: {:?}",
+                    encoding_schemes
+                );
+                return Some(ContentEncoding::GZip);
+            } else {
+                // Only gzip is available for now
+                println!(
+                    "Did NOT found gzip in the list of compression schemes: {:?}",
+                    encoding_schemes
+                );
+                return None;
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for StatusCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            StatusCode::Ok => write!(f, "200 OK"),
+            StatusCode::NotFound => write!(f, "404 Not Found"),
+            StatusCode::Created => write!(f, "201 Created"),
         }
     }
 }

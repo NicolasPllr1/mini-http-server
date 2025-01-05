@@ -1,29 +1,27 @@
-mod thread_pool;
-use thread_pool::ThreadPool;
-mod http_request;
-use http_request::HttpRequest;
-
-mod http_response;
-use http_response::HttpResponse;
-
-mod encoding;
-mod http_commons;
-
 use std::env;
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
+
+mod encoding;
+mod http_commons;
+mod http_request;
+mod http_response;
+mod thread_pool;
+
+use http_request::HttpRequest;
+use http_response::HttpResponse;
+use thread_pool::ThreadPool;
 
 fn handle_stream(mut stream: TcpStream, data_dir: Arc<String>) {
     println!("accepted new connection");
 
     let http_request = HttpRequest::new_from_stream(&mut stream);
-    // dbg!(&http_request);
+    dbg!(&http_request);
 
     let http_response = HttpResponse::build_response(&http_request, &data_dir);
     dbg!(&http_response);
-    let final_response_str = http_response.to_string();
-    dbg!(&final_response_str);
-    // let _res = stream.write(&final_response.into_bytes());
+    dbg!(http_response.to_string());
+
     let _ = http_response.write_to(&mut stream);
 }
 
