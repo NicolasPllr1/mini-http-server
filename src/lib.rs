@@ -2,11 +2,11 @@ use std::env;
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 
-mod encoding;
-mod http_commons;
-mod http_request;
-mod http_response;
-mod thread_pool;
+pub mod encoding;
+pub mod http_commons;
+pub mod http_request;
+pub mod http_response;
+pub mod thread_pool;
 
 use http_request::HttpRequest;
 use http_response::HttpResponse;
@@ -25,7 +25,7 @@ fn handle_stream(mut stream: TcpStream, data_dir: Arc<String>) {
     let _ = http_response.write_to(&mut stream);
 }
 
-fn main() {
+pub fn main() {
     let args: Vec<String> = env::args().collect();
     dbg!(&args);
     let data_dir = Arc::new(match args.len() {

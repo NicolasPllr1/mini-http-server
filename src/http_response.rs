@@ -304,3 +304,81 @@ impl Display for HttpResponse {
         }
     }
 }
+
+// Tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::http_commons::HttpVersion;
+    use crate::http_request::HttpMethod;
+    use std::collections::HashMap;
+
+    fn create_test_request(path: &str) -> HttpRequest {
+        HttpRequest {
+            http_method: HttpMethod::GET,
+            request_target: path.to_string(),
+            protocol_version: HttpVersion::Http11,
+            headers: HashMap::new(),
+            body: None,
+        }
+    }
+
+    #[test]
+    fn test_echo_endpoint_basic() {
+        let request = create_test_request("/echo/hello");
+        let response = HttpResponse::build_response(&request, "");
+
+        assert!(matches!(response.status_code, StatusCode::Ok));
+        assert_eq!(response.content_type, "text/plain");
+        assert_eq!(response.content_length, 5);
+        assert_eq!(response.body.unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_echo_endpoint_empty() {
+        let request = create_test_request("/echo/");
+        let response = HttpResponse::build_response(&request, "");
+
+        assert!(matches!(response.status_code, StatusCode::Ok));
+        assert_eq!(response.content_type, "text/plain");
+        assert_eq!(response.content_length, 0);
+        assert_eq!(response.body.unwrap(), "");
+    }
+
+    #[test]
+    fn test_echo_endpoint_with_spaces() {
+        let request = create_test_request("/echo/hello world");
+        let response = HttpResponse::build_response(&request, "");
+
+        assert!(matches!(response.status_code, StatusCode::Ok));
+        assert_eq!(response.content_type, "text/plain");
+        assert_eq!(response.content_length, 11);
+        assert_eq!(response.body.unwrap(), "hello world");
+    }
+
+    #[test]
+    fn test_echo_endpoint_special_chars() {
+        let request = create_test_request("/echo/hello!@#$%");
+        let response = HttpResponse::build_response(&request, "");
+
+        assert!(matches!(response.status_code, StatusCode::Ok));
+        assert_eq!(response.content_type, "text/plain");
+        assert_eq!(response.content_length, 10);
+        assert_eq!(response.body.unwrap(), "hello!@#$%");
+    }
+
+    #[test]
+    fn test_response_write_to() {
+        let request = create_test_request("/echo/test");
+        let response = HttpResponse::build_response(&request, "");
+        let mut output = Vec::new();
+
+        response.write_to(&mut output).unwrap();
+
+        let response_str = String::from_utf8(output).unwrap();
+        assert!(response_str.contains("200 OK"));
+        assert!(response_str.contains("content-type: text/plain"));
+        assert!(response_str.contains("content-length: 4"));
+        assert!(response_str.contains("test"));
+    }
+}
