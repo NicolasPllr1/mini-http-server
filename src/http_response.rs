@@ -36,7 +36,7 @@ pub enum Endpoints {
 
 // Public API
 impl HttpResponse {
-    pub fn build_response(http_request: &HttpRequest, data_dir: &str) -> HttpResponse {
+    pub fn new_response(http_request: &HttpRequest, data_dir: &str) -> HttpResponse {
         let endpoint_requested = Self::parse_request_target(&http_request.request_target);
         let content_encoding = http_request
             .headers
