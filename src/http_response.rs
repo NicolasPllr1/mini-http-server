@@ -45,6 +45,7 @@ impl HttpResponse {
         data_dir: &str,
     ) -> Result<HttpResponse, Box<dyn Error>> {
         let endpoint_requested = &http_request.request_target.parse::<Endpoints>()?;
+        println!("endpoint requested: {:?}", endpoint_requested);
         endpoint_requested.handle_request(http_request, data_dir)
     }
 

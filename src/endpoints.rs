@@ -12,6 +12,7 @@ use std::time::Duration; // for the 'Sleep' endpoint (used to test multi-threadi
 // 1. use combinator to reduce explicit matching
 // 2. custom error with ?
 
+#[derive(Debug)]
 pub enum Endpoints {
     UrlPath,
     Echo,
@@ -30,6 +31,7 @@ impl Endpoints {
             .headers
             .get("Accept-Encoding")
             .map_or(None, |s| s.parse().ok());
+        println!("content-encoding selected: {:?}", content_encoding);
 
         match self {
             Endpoints::UrlPath => Ok(HttpResponse {
