@@ -39,7 +39,7 @@ impl HttpRequest {
         // Read the *request-line*
         let mut request_line = String::new();
         reader.read_line(&mut request_line)?;
-        println!("Sucess reading the *request-line*: {}", request_line);
+        println!("Success reading the *request-line*: {}", request_line);
 
         // Parse the *request-line*
         let [http_method, request_target, protocol_version]: [&str; 3] = request_line

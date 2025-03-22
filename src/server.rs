@@ -49,8 +49,10 @@ impl Server {
         println!("accepted new connection");
 
         let http_request = HttpRequest::build_from_stream(&mut stream)?;
+        println!("parsed http-request: {:?}", http_request);
 
         let http_response = HttpResponse::build_from_request(&http_request, &data_dir)?;
+        println!("built http-response: {:?}", http_response);
 
         let _ = http_response.write_to(&mut stream)?;
         Ok(())
