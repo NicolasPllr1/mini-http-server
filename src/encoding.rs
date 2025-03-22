@@ -23,17 +23,14 @@ impl std::fmt::Display for ContentEncoding {
 impl std::str::FromStr for ContentEncoding {
     type Err = String;
 
-    fn from_str(encodings_list_str: &str) -> Result<Self, Self::Err> {
-        // encoding_schemes : either a single value OR a list of values
-        let encoding_scheme: Option<ContentEncoding> = encodings_list_str
-            .split(",")
-            .map(|s| s.trim())
-            .filter_map(|s| s.parse::<ContentEncoding>().ok())
-            .find(|encoding| *encoding == ContentEncoding::GZip);
-        encoding_scheme.ok_or(format!(
-            "Only gzip supported. Proposed encoding schemes received: {}",
-            encodings_list_str
-        ))
+    fn from_str(encoding_scheme_str: &str) -> Result<Self, Self::Err> {
+        match encoding_scheme_str {
+            "gzip" => Ok(ContentEncoding::GZip),
+            _ => Err(format!(
+                "Only gzip supported. Proposed encoding schemes received: {}",
+                encoding_scheme_str
+            )),
+        }
     }
 }
 
@@ -43,9 +40,9 @@ impl ContentEncoding {
             ContentEncoding::GZip => gzip_encode_body(body).unwrap_or_default(),
         }
     }
-    pub fn parse_encoding_scheme(encoding_str: &str) -> Option<ContentEncoding> {
-        // encoding_schemes : either a single value OR a list of values
-        let encoding_scheme: Option<ContentEncoding> = encoding_str
+    pub fn from_header(hdr_val: &str) -> Option<ContentEncoding> {
+        // In the header: either a single scheme or a list of schemes
+        let encoding_scheme: Option<ContentEncoding> = hdr_val
             .split(",")
             .map(|s| s.trim())
             .filter_map(|s| s.parse::<ContentEncoding>().ok())
@@ -77,4 +74,32 @@ fn gzip_encode_body(body: &str) -> Option<Bytes> {
         }
     };
     compressed_body
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    #[test]
+    fn test_content_encoding_from_str() {
+        assert_eq!(
+            "gzip".parse::<ContentEncoding>().unwrap(),
+            ContentEncoding::GZip
+        );
+
+        assert_eq!(
+            "deflate, gzip".parse::<ContentEncoding>().unwrap(),
+            ContentEncoding::GZip
+        );
+
+        assert_eq!(
+            "br, lorem, gzip, ipsum".parse::<ContentEncoding>().unwrap(),
+            ContentEncoding::GZip
+        );
+
+        assert!("br, lorem, ipsum".parse::<ContentEncoding>().is_err());
+        assert!("".parse::<ContentEncoding>().is_err());
+
+        assert!("deflate".parse::<ContentEncoding>().is_err());
+    }
 }
