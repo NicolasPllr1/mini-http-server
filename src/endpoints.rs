@@ -1,3 +1,4 @@
+use crate::encoding::ContentEncoding;
 use crate::http_request::HttpMethod;
 use crate::http_request::HttpRequest;
 use crate::http_response::HttpResponse;
@@ -30,8 +31,7 @@ impl Endpoints {
         let content_encoding = http_request
             .headers
             .get("Accept-Encoding")
-            .map_or(None, |s| s.parse().ok());
-        println!("content-encoding selected: {:?}", content_encoding);
+            .map_or(None, |hdr_val| ContentEncoding::from_header(hdr_val));
 
         match self {
             Endpoints::UrlPath => Ok(HttpResponse {

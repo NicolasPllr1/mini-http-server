@@ -45,7 +45,6 @@ impl HttpResponse {
         data_dir: &str,
     ) -> Result<HttpResponse, Box<dyn Error>> {
         let endpoint_requested = &http_request.request_target.parse::<Endpoints>()?;
-        println!("endpoint requested: {:?}", endpoint_requested);
         endpoint_requested.handle_request(http_request, data_dir)
     }
 
@@ -139,6 +138,8 @@ mod tests {
     use crate::http_request::HttpMethod;
     use std::collections::HashMap;
 
+    use crate::encoding::ContentEncoding;
+
     fn create_test_request(path: &str) -> HttpRequest {
         HttpRequest {
             http_method: HttpMethod::GET,
@@ -206,5 +207,73 @@ mod tests {
         assert!(response_str.contains("content-type: text/plain"));
         assert!(response_str.contains("content-length: 4"));
         assert!(response_str.contains("test"));
+    }
+
+    #[test]
+    fn test_echo_endpoint_with_gzip_encoding() {
+        let mut request = create_test_request("/echo/compressed_content");
+        request
+            .headers
+            .insert("Accept-Encoding".to_string(), "gzip".to_string());
+
+        let response = HttpResponse::build_from_request(&request, "").unwrap();
+
+        assert!(matches!(response.status_code, StatusCode::Ok));
+        assert_eq!(response.content_type, "text/plain");
+        assert_eq!(response.content_encoding, Some(ContentEncoding::GZip));
+
+        assert!(response.content_length > 0);
+
+        // NOTE: body gets compressed when response is written as bytes
+        // --> the body should not be compressed yet
+        assert_eq!(response.body.as_ref().unwrap(), "compressed_content");
+    }
+
+    #[test]
+    fn test_echo_endpoint_with_multiple_encodings() {
+        let mut request = create_test_request("/echo/hello");
+        request.headers.insert(
+            "Accept-Encoding".to_string(),
+            "deflate, gzip, br".to_string(),
+        );
+
+        let response = HttpResponse::build_from_request(&request, "").unwrap();
+
+        assert!(matches!(response.status_code, StatusCode::Ok));
+        // Should choose gzip as it's supported and within the list of proposed encoding schemes
+        assert_eq!(response.content_encoding, Some(ContentEncoding::GZip));
+    }
+
+    #[test]
+    fn test_echo_endpoint_with_unsupported_encoding() {
+        let mut request = create_test_request("/echo/hello");
+        request
+            .headers
+            .insert("Accept-Encoding".to_string(), "deflate, br".to_string());
+
+        let response = HttpResponse::build_from_request(&request, "").unwrap();
+
+        assert!(matches!(response.status_code, StatusCode::Ok));
+        // Should not have Content-Encoding header as no supported encoding was requested
+        assert!(response.content_encoding.is_none());
+        assert_eq!(response.body.unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_response_write_to_with_gzip() {
+        let mut request = create_test_request("/echo/test_compressed");
+        request
+            .headers
+            .insert("Accept-Encoding".to_string(), "gzip".to_string());
+
+        let response = HttpResponse::build_from_request(&request, "").unwrap();
+        let mut rcv_buff = Vec::new();
+        response.write_to(&mut rcv_buff).unwrap();
+
+        // Only check the headers portion which is not compressed
+        let headers_str = String::from_utf8_lossy(&rcv_buff);
+        assert!(headers_str.contains("200 OK"));
+        assert!(headers_str.contains("content-type: text/plain"));
+        assert!(headers_str.contains("Content-Encoding: gzip"));
     }
 }

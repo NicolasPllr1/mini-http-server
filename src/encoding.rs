@@ -55,7 +55,7 @@ fn gzip_encode_body(body: &str) -> Option<Bytes> {
     println!("Body to encode: {}", &body);
     match encoder.write_all(body.as_bytes()) {
         Ok(_) => {
-            println!("Successful gzip compression started");
+            println!("gzip compression initiated");
         }
         Err(e) => {
             println!("Error while initiating gzip-compressing the body: {}", e);
@@ -65,7 +65,7 @@ fn gzip_encode_body(body: &str) -> Option<Bytes> {
     };
     let compressed_body = match encoder.finish() {
         Ok(encoded_bytes) => {
-            println!("Gzip compression successfull");
+            println!("Gzip compression successful");
             Some(Bytes::from(encoded_bytes))
         }
         Err(e) => {
@@ -80,26 +80,36 @@ fn gzip_encode_body(body: &str) -> Option<Bytes> {
 mod tests {
 
     use super::*;
+
     #[test]
-    fn test_content_encoding_from_str() {
+    fn test_encoding_basic_parsing() {
         assert_eq!(
             "gzip".parse::<ContentEncoding>().unwrap(),
             ContentEncoding::GZip
         );
+        assert!("not_gzip".parse::<ContentEncoding>().is_err());
+    }
 
+    #[test]
+    fn test_encoding_parsing_from_header_value() {
         assert_eq!(
-            "deflate, gzip".parse::<ContentEncoding>().unwrap(),
+            ContentEncoding::from_header("gzip").unwrap(),
             ContentEncoding::GZip
         );
 
         assert_eq!(
-            "br, lorem, gzip, ipsum".parse::<ContentEncoding>().unwrap(),
+            ContentEncoding::from_header("deflate, gzip").unwrap(),
             ContentEncoding::GZip
         );
 
-        assert!("br, lorem, ipsum".parse::<ContentEncoding>().is_err());
+        assert_eq!(
+            ContentEncoding::from_header("br, lorem, gzip, ipsum").unwrap(),
+            ContentEncoding::GZip
+        );
+
+        assert!(ContentEncoding::from_header("br, lorem, ipsum").is_none());
         assert!("".parse::<ContentEncoding>().is_err());
 
-        assert!("deflate".parse::<ContentEncoding>().is_err());
+        assert!(ContentEncoding::from_header("deflate").is_none());
     }
 }
