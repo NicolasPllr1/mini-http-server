@@ -1,40 +1,30 @@
-use flyweight_http_server;
+use flyweight_http_server::Server;
+
+use std::error::Error;
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use std::thread;
-use std::time::Duration;
 
-#[cfg(test)]
 struct TestServer {
-    port: u16,
-    _server_thread: thread::JoinHandle<()>, // We prefix with _ to indicate we won't join it
+    server: Server,
 }
 
-#[cfg(test)]
 impl TestServer {
-    fn start() -> Self {
-        let port = 4221;
-        let server_thread = thread::spawn(move || {
-            // let args = vec![String::from("program"), String::from("")];
-            std::env::set_var("CARGO_MANIFEST_DIR", ".");
-            flyweight_http_server::main();
-        });
-
-        // Wait for server to start
-        thread::sleep(Duration::from_millis(100));
-
+    fn new() -> Self {
+        let address = "127.0.0.1:4221";
+        let pool_size = 10; // thread pool size
+        let data_dir = "data/";
         TestServer {
-            port,
-            _server_thread: server_thread,
+            server: Server::new(address, pool_size, data_dir),
         }
     }
+    fn run(&self) -> Result<(), Box<dyn Error>> {
+        self.server.run()
+    }
 
-    fn send_request(&self, path: &str) -> String {
-        let mut stream = TcpStream::connect(format!("127.0.0.1:{}", self.port)).unwrap();
-        let request = format!(
-            "GET {} HTTP/1.1\r\nHost: localhost:{}\r\n\r\n",
-            path, self.port
-        );
+    fn send_request(self, path: &str) -> String {
+        let mut stream = TcpStream::connect(self.server.address).unwrap();
+
+        let request = format!("GET {} HTTP/1.1\r\nHost: localhost:4221\r\n\r\n", path);
         stream.write_all(request.as_bytes()).unwrap();
 
         let mut response = String::new();
@@ -42,10 +32,10 @@ impl TestServer {
         response
     }
 
-    fn send_request_with_headers(&self, path: &str, headers: &[(&str, &str)]) -> String {
-        let mut stream = TcpStream::connect(format!("127.0.0.1:{}", self.port)).unwrap();
+    fn send_request_with_headers(self, path: &str, headers: &[(&str, &str)]) -> String {
+        let mut stream = TcpStream::connect(self.server.address).unwrap();
 
-        let mut request = format!("GET {} HTTP/1.1\r\nHost: localhost:{}\r\n", path, self.port);
+        let mut request = format!("GET {} HTTP/1.1\r\nHost: localhost:4221\r\n", path);
 
         // Add custom headers
         for (name, value) in headers {
@@ -61,30 +51,42 @@ impl TestServer {
     }
 }
 
-#[test]
-fn test_echo_endpoint() {
-    let server = TestServer::start();
-    let response = server.send_request("/echo/hello");
+mod test {
+    use crate::TestServer;
 
-    assert!(response.contains("HTTP/1.1 200 OK"));
-    assert!(response.contains("content-type: text/plain"));
-    assert!(response.contains("hello"));
-}
+    #[test]
+    fn test_echo_endpoint() {
+        let server = TestServer::new();
+        let _ = server.run();
 
-#[test]
-fn test_user_agent() {
-    let server = TestServer::start();
-    let headers = &[("User-Agent", "test-agent")];
-    let response = server.send_request_with_headers("/user-agent", headers);
+        let path = "/echo/hello";
+        let response = server.send_request(path);
 
-    assert!(response.contains("HTTP/1.1 200 OK"));
-    assert!(response.contains("test-agent"));
-}
+        assert!(response.contains("HTTP/1.1 200 OK"));
+        assert!(response.contains("content-type: text/plain"));
+        assert!(response.contains("hello"));
+    }
 
-#[test]
-fn test_not_found() {
-    let server = TestServer::start();
-    let response = server.send_request("/nonexistent");
+    #[test]
+    fn test_user_agent() {
+        let server = TestServer::new();
+        let _ = server.run();
 
-    assert!(response.contains("HTTP/1.1 404 Not Found"));
+        let headers = &[("User-Agent", "test-agent")];
+        let path = "/user-agent";
+        let response = server.send_request_with_headers(path, headers);
+
+        assert!(response.contains("HTTP/1.1 200 OK"));
+        assert!(response.contains("test-agent"));
+    }
+
+    #[test]
+    fn test_not_found() {
+        let server = TestServer::new();
+        let _ = server.run();
+
+        let response = server.send_request("/nonexistent");
+
+        assert!(response.contains("HTTP/1.1 404 Not Found"));
+    }
 }

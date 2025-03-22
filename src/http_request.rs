@@ -21,7 +21,7 @@ pub enum HttpMethod {
 }
 
 impl std::str::FromStr for HttpMethod {
-    type Err = String;
+    type Err = String; // NOTE: what/why ?
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -46,9 +46,7 @@ impl HttpRequest {
             .split_whitespace()
             .collect::<Vec<_>>()
             .try_into()
-            .map_err(|_| {
-                "Invalid HTTP request-line. Expected: <method> <request-target> <protocol-version>"
-            })?;
+            .map_err(|e| format!("Invalid HTTP request-line. Expected: <method> <request-target> <protocol-version>. Got: {:?}", e))?;
 
         let request_target = request_target.to_string();
 
@@ -59,7 +57,7 @@ impl HttpRequest {
         // Read eventual *headers*
         let mut headers: HashMap<String, String> = HashMap::new();
         loop {
-            let mut content = String::new();
+            let mut content = String::new(); // NOTE: could allocate once?
             reader.read_line(&mut content).unwrap();
             if content == "\r\n" {
                 break;
@@ -70,7 +68,7 @@ impl HttpRequest {
             }
         }
 
-        // Read the body if any
+        // Read the *body* if any
         let body = if let Some(n_bytes_str) = headers.get("Content-Length") {
             let n_bytes = n_bytes_str
                 .parse::<usize>()
