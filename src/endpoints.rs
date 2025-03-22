@@ -12,6 +12,7 @@ use std::time::Duration; // for the 'Sleep' endpoint (used to test multi-threadi
 //TODO:
 // 1. use combinator to reduce explicit matching
 // 2. custom error with ?
+// Potential refacto with a Router (dynamic vs static dispatch)
 
 #[derive(Debug)]
 pub enum Endpoints {
@@ -20,6 +21,7 @@ pub enum Endpoints {
     UserAgent,
     Sleep,
     File,
+    NotAvailable,
 }
 
 impl Endpoints {
@@ -125,6 +127,14 @@ impl Endpoints {
                     }
                 }
             },
+            Endpoints::NotAvailable => Ok(HttpResponse {
+                status_code: StatusCode::NotFound,
+                content_type: "text/plain".to_string(),
+                content_encoding,
+                content_length: 0,
+                protocol_version: http_request.protocol_version,
+                body: None,
+            }),
         }
     }
 }
@@ -139,11 +149,12 @@ impl std::str::FromStr for Endpoints {
             "/user-agent" => Ok(Self::UserAgent),
             "/sleep" => Ok(Self::Sleep),
             s if s.starts_with("/files/") => Ok(Self::File),
-            _ => Err(format!(
-                "Request target does not match any available endpoint: {}",
-                request_target
-            )
-            .into()),
+            _ => Ok(Self::NotAvailable),
+            // _ => Err(format!(
+            //     "Request target does not match any available endpoint: {}",
+            //     request_target
+            // )
+            // .into()),
         }
     }
 }
