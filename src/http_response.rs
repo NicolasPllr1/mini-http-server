@@ -49,6 +49,9 @@ impl HttpResponse {
     }
 
     pub fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        // TODO: better branching, maybe on body being Some, and add a 'Plain' encoding scheme ? or
+        // map on its value and if it's none retrun the body as is (i.e. remove the match on
+        // content_encoding and use a combinator
         if self.content_length == 0 {
             write!(
                 writer,
@@ -56,6 +59,7 @@ impl HttpResponse {
                 self.protocol_version, self.status_code
             )
         } else {
+            assert!(self.body.is_some());
             match &self.content_encoding {
                 Some(encoding_scheme) => {
                     let encoded_body_bytes =
