@@ -15,7 +15,7 @@ pub enum ContentEncoding {
 impl std::fmt::Display for ContentEncoding {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            ContentEncoding::GZip => write!(f, "Content-Encoding: gzip"),
+            ContentEncoding::GZip => write!(f, "Content-Encoding: gzip\r\n"),
         }
     }
 }
