@@ -51,10 +51,10 @@ impl HttpResponse {
 
     pub fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
         // Status line
-        write!(writer, "{} {}\r\n", self.protocol_version, self.status_code,)?;
+        write!(writer, "{} {}\r\n", self.protocol_version, self.status_code)?;
 
         // Content-type
-        write!(writer, "content-type: {}\r\n", self.content_type)?;
+        write!(writer, "Content-Type: {}\r\n", self.content_type)?;
 
         // Body if any
         if let Some(body) = &self.body {
@@ -67,7 +67,7 @@ impl HttpResponse {
 
             write!(
                 writer,
-                "content-length: {}\r\n\r\n",
+                "Content-Length: {}\r\n\r\n",
                 encoded_body_bytes.len()
             )?;
             let _ = writer.write_all(&encoded_body_bytes)?;
@@ -86,7 +86,7 @@ impl Display for HttpResponse {
         write!(f, "{} {}\r\n", self.protocol_version, self.status_code,)?;
 
         // Content-type
-        write!(f, "content-type: {}\r\n", self.content_type)?;
+        write!(f, "Content-Type: {}\r\n", self.content_type)?;
 
         // Body if any
         if let Some(body) = &self.body {
@@ -95,7 +95,8 @@ impl Display for HttpResponse {
             if let Some(encoding) = &self.content_encoding {
                 write!(f, "{}", encoding)?;
             }
-            write!(f, "content-length: {}", body.len())?; // TODO: why putting self.body.len()
+            write!(f, "Content-Length: {}", body.len())?; // TODO: why putting self.body.len() does
+                                                          // not work ? ('fn is private')
             write!(f, "{}", body)?;
         }
 
