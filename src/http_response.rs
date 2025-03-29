@@ -2,6 +2,7 @@ use crate::encoding::ContentEncoding;
 use crate::endpoints::Endpoints;
 use crate::http_commons::HttpVersion;
 use crate::http_request::HttpRequest;
+use bytes::Bytes;
 
 use std::error::Error;
 use std::fmt::Display;
@@ -9,7 +10,7 @@ use std::io::Write;
 
 //TODO:
 // 1. use combinator to reduce explicit matching
-// 2. custom error with ?
+// 2. custom error type?
 
 #[derive(Debug)]
 pub struct HttpResponse {
@@ -49,88 +50,53 @@ impl HttpResponse {
     }
 
     pub fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        // TODO: better branching, maybe on body being Some, and add a 'Plain' encoding scheme ? or
-        // map on its value and if it's none retrun the body as is (i.e. remove the match on
-        // content_encoding and use a combinator
-        if self.content_length == 0 {
-            write!(
-                writer,
-                "{} {}\r\n\r\n",
-                self.protocol_version, self.status_code
-            )
+        // Status line
+        write!(writer, "{} {}\r\n", self.protocol_version, self.status_code,)?;
+
+        // Content-type
+        write!(writer, "content-type: {}\r\n", self.content_type)?;
+
+        // Body if any
+        if let Some(body) = &self.body {
+            let encoded_body_bytes = if let Some(encoding) = &self.content_encoding {
+                write!(writer, "{}", encoding)?;
+                encoding.encode_body(body)
+            } else {
+                Bytes::from(body.as_bytes().to_vec())
+            };
+
+            write!(writer, "content-length: {}", encoded_body_bytes.len())?;
+            let _ = writer.write_all(&encoded_body_bytes)?;
+            write!(writer, "\r\n")?;
         } else {
-            assert!(self.body.is_some());
-            match &self.content_encoding {
-                Some(encoding_scheme) => {
-                    let encoded_body_bytes =
-                        encoding_scheme.encode_body(&self.body.as_deref().unwrap_or_default());
-                    // First write *headers*
-                    write!(
-                        writer,
-                        "{} {}\r\ncontent-type: {}\r\n{}\r\ncontent-length: {}\r\n\r\n",
-                        self.protocol_version,
-                        self.status_code,
-                        self.content_type,
-                        encoding_scheme,
-                        encoded_body_bytes.len(),
-                    )?;
-                    // Second write the *encoded-body* (raw bytes directly)
-                    writer.write_all(&encoded_body_bytes)
-                }
-                None => {
-                    write!(
-                        writer,
-                        "{} {}\r\ncontent-type: {}\r\ncontent-length: {}\r\n\r\n{}",
-                        self.protocol_version,
-                        self.status_code,
-                        self.content_type,
-                        self.content_length,
-                        self.body.clone().unwrap_or_default(),
-                    )
-                }
-            }
+            // no body, the end
+            write!(writer, "\r\n")?;
         }
+        Ok(())
     }
 }
 
 impl Display for HttpResponse {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.content_length == 0 {
-            write!(f, "{} {}\r\n\r\n", self.protocol_version, self.status_code)
-        } else {
-            match &self.content_encoding {
-                Some(encoding_scheme) => {
-                    let encoded_body_bytes =
-                        encoding_scheme.encode_body(&self.body.as_deref().unwrap_or_default());
-                    let encoded_body_hexa = encoded_body_bytes
-                        .iter()
-                        .map(|b| format!("{:02x}", b).to_string())
-                        .collect::<Vec<String>>()
-                        .join(" ");
-                    write!(
-                        f,
-                        "{} {}\r\ncontent-type: {}\r\n{}\r\ncontent-length: {}\r\n\r\n{}",
-                        self.protocol_version,
-                        self.status_code,
-                        self.content_type,
-                        encoding_scheme,
-                        encoded_body_bytes.len(),
-                        encoded_body_hexa,
-                    )
-                }
-                None => {
-                    write!(
-                        f,
-                        "{} {}\r\ncontent-type: {}\r\ncontent-length: {}\r\n\r\n{}",
-                        self.protocol_version,
-                        self.status_code,
-                        self.content_type,
-                        self.content_length,
-                        self.body.clone().unwrap_or_default(),
-                    )
-                }
+        // Status line
+        write!(f, "{} {}\r\n", self.protocol_version, self.status_code,)?;
+
+        // Content-type
+        write!(f, "content-type: {}\r\n", self.content_type)?;
+
+        // Body if any
+        if let Some(body) = &self.body {
+            // TODO: why borrowing self.body is needed here ? same
+            // below for content_encoding
+            if let Some(encoding) = &self.content_encoding {
+                write!(f, "{}", encoding)?;
             }
+            write!(f, "content-length: {}", body.len())?; // TODO: why putting self.body.len()
+            write!(f, "{}", body)?;
         }
+
+        write!(f, "\r\n")?;
+        Ok(())
     }
 }
 
