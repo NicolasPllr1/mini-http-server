@@ -65,7 +65,11 @@ impl HttpResponse {
                 Bytes::from(body.as_bytes().to_vec())
             };
 
-            write!(writer, "content-length: {}", encoded_body_bytes.len())?;
+            write!(
+                writer,
+                "content-length: {}\r\n\r\n",
+                encoded_body_bytes.len()
+            )?;
             let _ = writer.write_all(&encoded_body_bytes)?;
             write!(writer, "\r\n")?;
         } else {
