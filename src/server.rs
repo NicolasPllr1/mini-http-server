@@ -5,7 +5,6 @@ use crate::thread_pool::ThreadPool;
 use std::error::Error;
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
-use std::usize;
 
 pub struct Server {
     pub address: String,
@@ -48,13 +47,15 @@ impl Server {
     fn handle_stream(mut stream: TcpStream, data_dir: Arc<String>) -> Result<(), Box<dyn Error>> {
         println!("accepted new connection");
 
+        // TODO: if build_from_stream err, then we build error-404 reponse ? always want to answer
+        // I guess
         let http_request = HttpRequest::build_from_stream(&mut stream)?;
         println!("parsed http-request: {:?}", http_request);
 
         let http_response = HttpResponse::build_from_request(&http_request, &data_dir)?;
         println!("built http-response: {:?}", http_response);
 
-        let _ = http_response.write_to(&mut stream)?;
+        http_response.write_to(&mut stream)?;
         Ok(())
     }
 }

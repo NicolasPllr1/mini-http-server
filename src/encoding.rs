@@ -42,12 +42,11 @@ impl ContentEncoding {
     }
     pub fn from_header(hdr_val: &str) -> Option<ContentEncoding> {
         // In the header: either a single scheme or a list of schemes
-        let encoding_scheme: Option<ContentEncoding> = hdr_val
+        hdr_val
             .split(",")
             .map(|s| s.trim())
             .filter_map(|s| s.parse::<ContentEncoding>().ok())
-            .find(|encoding| *encoding == ContentEncoding::GZip);
-        encoding_scheme
+            .find(|encoding| *encoding == ContentEncoding::GZip)
     }
 }
 fn gzip_encode_body(body: &str) -> Option<Bytes> {
@@ -63,7 +62,7 @@ fn gzip_encode_body(body: &str) -> Option<Bytes> {
             return None;
         }
     };
-    let compressed_body = match encoder.finish() {
+    match encoder.finish() {
         Ok(encoded_bytes) => {
             println!("Gzip compression successful");
             Some(Bytes::from(encoded_bytes))
@@ -72,8 +71,7 @@ fn gzip_encode_body(body: &str) -> Option<Bytes> {
             println!("Error during the gzip-compression : {}", e);
             None
         }
-    };
-    compressed_body
+    }
 }
 
 #[cfg(test)]

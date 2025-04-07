@@ -33,7 +33,7 @@ impl Endpoints {
         let content_encoding = http_request
             .headers
             .get("Accept-Encoding")
-            .map_or(None, |hdr_val| ContentEncoding::from_header(hdr_val));
+            .and_then(|hdr_val| ContentEncoding::from_header(hdr_val));
 
         match self {
             Endpoints::UrlPath => Ok(HttpResponse {
@@ -82,7 +82,7 @@ impl Endpoints {
                 })
             }
             Endpoints::File => match http_request.http_method {
-                HttpMethod::GET => match Self::get_file_content(&http_request, data_dir) {
+                HttpMethod::GET => match Self::get_file_content(http_request, data_dir) {
                     Some(file_content) => Ok(HttpResponse {
                         status_code: StatusCode::Ok,
                         content_type: "application/octet-stream".to_string(),
@@ -101,7 +101,7 @@ impl Endpoints {
                     }),
                 },
                 HttpMethod::POST => {
-                    let filename = Self::get_target_filename(&http_request).unwrap();
+                    let filename = Self::get_target_filename(http_request).unwrap();
                     let path = format!("{}/{}", data_dir, filename);
                     let content = http_request
                         .body

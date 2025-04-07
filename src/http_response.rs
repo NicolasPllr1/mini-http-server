@@ -70,7 +70,7 @@ impl HttpResponse {
                 "Content-Length: {}\r\n\r\n",
                 encoded_body_bytes.len()
             )?;
-            let _ = writer.write_all(&encoded_body_bytes)?;
+            writer.write_all(&encoded_body_bytes)?;
             write!(writer, "\r\n")?;
         } else {
             // no body, the end

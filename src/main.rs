@@ -1,4 +1,5 @@
 use std::env;
+use std::error::Error;
 
 use flyweight_http_server::server::Server;
 
@@ -6,7 +7,7 @@ use flyweight_http_server::server::Server;
 // 1. args config, with proper parsing like in the Book
 // 2. handle error here aswell ? like in the Book
 
-pub fn main() {
+pub fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
 
     let data_dir = match args.len() {
@@ -19,7 +20,9 @@ pub fn main() {
 
     let server = Server::new(address, pool_size, &data_dir);
 
-    let _ = server.run();
+    server.run()?;
 
     println!("Shutting down.");
+
+    Ok(())
 }
