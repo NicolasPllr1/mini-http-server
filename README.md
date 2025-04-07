@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./http_globe_codecrafters.svg" alt="Mini-HTTP Server Banner" width="200">
+</p>
+
 # Mini-HTTP Server
 
 I started this implementation through the CodeCrafters challenge: ["Build Your Own HTTP server"](https://app.codecrafters.io/courses/http-server/overview). It provided a nice structure and good pointers to get started. The automated testing they do on every git push is really awesome.
