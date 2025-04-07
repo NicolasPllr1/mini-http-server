@@ -1,38 +1,28 @@
-[![progress-banner](https://backend.codecrafters.io/progress/http-server/44d0f6fc-9451-4f20-b487-a19e801f10a1)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
+# Mini-HTTP Server
 
-This is a starting point for Rust solutions to the
-["Build Your Own HTTP server" Challenge](https://app.codecrafters.io/courses/http-server/overview).
+I started this implementation through the CodeCrafters challenge: ["Build Your Own HTTP server"](https://app.codecrafters.io/courses/http-server/overview). It provided a nice structure and good pointers to get started. The automated testing they do on every git push is really awesome.
 
-[HTTP](https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol) is the
-protocol that powers the web. In this challenge, you'll build a HTTP/1.1 server
-that is capable of serving multiple clients.
+## Next Steps
 
-Along the way you'll learn about TCP servers,
-[HTTP request syntax](https://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html),
-and more.
+- Document the implementation. Target audience: beginners in Rust and/or networking
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
+Current implementation is very limited both protocol-wise and performance-wise. It only supports a mini fraction of the HTTP1 protocol and although the implementation is concurrent (multi-threaded), it is not asynchronous yet. So next steps to go more in depth may be:
+  - Protocol-wise
+    - implement the complete protocol
+    - add support for HTTP2 features
+  - Performance-wise
+    - enable async (with/without Tokio?)
+    - load-testing to monitor perf gains
 
-# Passing the first stage
+## Running the Server
 
-The entry point for your HTTP server implementation is in `src/main.rs`. Study
-and uncomment the relevant code, and push your changes to pass the first stage:
+### Manual
 
-```sh
-git commit -am "pass 1st stage" # any msg
-git push origin master
-```
+1. Compile the Rust program into an executable binary: `cargo build`
+2. Run the executable: `./target/release/flyweight-http-server`
 
-Time to move on to the next stage!
+### Shell Script
 
-# Stage 2 & beyond
+The `compile_and_run.sh` script automates the 2 steps described above.
 
-Note: This section is for stages 2 and beyond.
-
-1. Ensure you have `cargo (1.82)` installed locally
-1. Run `./your_program.sh` to run your program, which is implemented in
-   `src/main.rs`. This command compiles your Rust project, so it might be slow
-   the first time you run it. Subsequent runs will be fast.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
+You can simply run `./compile_and_run.sh` and get the http-server going!
