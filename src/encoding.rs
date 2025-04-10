@@ -7,7 +7,7 @@ use std::io::prelude::*;
 // 1. error handling basic : std::error::Error
 // 2. refactor using combinator/ ? if using custom error
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ContentEncoding {
     GZip,
 }

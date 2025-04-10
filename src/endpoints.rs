@@ -1,8 +1,8 @@
 use crate::encoding::ContentEncoding;
 use crate::http_request::HttpMethod;
 use crate::http_request::HttpRequest;
-use crate::http_response::HttpResponse;
 use crate::http_response::StatusCode;
+use crate::http_response::{Buildable, Builder, HttpResponse};
 
 use std::error::Error;
 use std::fs;
@@ -24,81 +24,57 @@ pub enum Endpoints {
     NotAvailable,
 }
 
+// TODO: explore/compare the trait approach for the endpoints implementations
 impl Endpoints {
     pub fn handle_request(
         &self,
         http_request: &HttpRequest,
         data_dir: &str,
     ) -> Result<HttpResponse, Box<dyn Error>> {
+        let mut builder = HttpResponse::builder();
+
+        builder.with_protocol_version(http_request.protocol_version);
+
         let content_encoding = http_request
             .headers
             .get("Accept-Encoding")
             .and_then(|hdr_val| ContentEncoding::from_header(hdr_val));
 
+        builder.with_content_encoding(content_encoding);
+
         match self {
-            Endpoints::UrlPath => Ok(HttpResponse {
-                protocol_version: http_request.protocol_version,
-                status_code: StatusCode::Ok,
-                content_type: "text/plain".to_string(),
-                content_encoding,
-                content_length: 0,
-                body: None,
-            }),
+            Endpoints::UrlPath => {}
+
             Endpoints::Echo => {
                 let to_echo_back = http_request.request_target[6..].to_string(); // '/echo/{str}'
-                Ok(HttpResponse {
-                    status_code: StatusCode::Ok,
-                    content_type: "text/plain".to_string(),
-                    content_encoding,
-                    content_length: to_echo_back.len(),
-                    protocol_version: http_request.protocol_version,
-                    body: Some(to_echo_back),
-                })
+                builder.with_content_length(to_echo_back.len());
+                builder.with_body(&to_echo_back);
             }
             Endpoints::UserAgent => {
                 let user_agent_body = http_request
                     .headers
                     .get("User-Agent")
                     .expect("User-Agent endpoint expects 'User-Agent' header");
-                Ok(HttpResponse {
-                    status_code: StatusCode::Ok,
-                    content_type: "text/plain".to_string(),
-                    content_encoding,
-                    content_length: user_agent_body.len(),
-                    protocol_version: http_request.protocol_version,
-                    body: Some(user_agent_body.clone()),
-                })
+
+                builder.with_content_length(user_agent_body.len());
+                builder.with_body(user_agent_body);
             }
             Endpoints::Sleep => {
                 thread::sleep(Duration::from_secs(10));
-                let msg = "Good sleep!".to_string();
-                Ok(HttpResponse {
-                    status_code: StatusCode::Ok,
-                    content_type: "text/plain".to_string(),
-                    content_encoding,
-                    content_length: msg.len(),
-                    protocol_version: http_request.protocol_version,
-                    body: Some(msg),
-                })
+                let sleep_msg = "Good sleep!".to_string();
+                builder.with_content_length(sleep_msg.len());
+                builder.with_body(&sleep_msg);
             }
             Endpoints::File => match http_request.http_method {
                 HttpMethod::GET => match Self::get_file_content(http_request, data_dir) {
-                    Some(file_content) => Ok(HttpResponse {
-                        status_code: StatusCode::Ok,
-                        content_type: "application/octet-stream".to_string(),
-                        content_encoding,
-                        content_length: file_content.as_bytes().len(),
-                        protocol_version: http_request.protocol_version,
-                        body: Some(file_content),
-                    }),
-                    None => Ok(HttpResponse {
-                        status_code: StatusCode::NotFound,
-                        content_type: "text/plain".to_string(),
-                        content_encoding,
-                        content_length: 0,
-                        protocol_version: http_request.protocol_version,
-                        body: None,
-                    }),
+                    Some(file_content) => {
+                        builder.with_content_type("application/octet-stream");
+                        builder.with_content_length(file_content.as_bytes().len());
+                        builder.with_body(&file_content);
+                    }
+                    None => {
+                        builder.with_status_code(StatusCode::NotFound);
+                    }
                 },
                 HttpMethod::POST => {
                     let filename = Self::get_target_filename(http_request).unwrap();
@@ -108,34 +84,22 @@ impl Endpoints {
                         .clone()
                         .expect("Body should have been provided");
                     match fs::write(path, content) {
-                        Ok(_) => Ok(HttpResponse {
-                            status_code: StatusCode::Created,
-                            content_type: "application/octet-stream".to_string(),
-                            content_encoding,
-                            content_length: 0,
-                            protocol_version: http_request.protocol_version,
-                            body: None,
-                        }),
-                        Err(_) => Ok(HttpResponse {
-                            status_code: StatusCode::NotFound,
-                            content_type: "text/plain".to_string(),
-                            content_encoding,
-                            content_length: 0,
-                            protocol_version: http_request.protocol_version,
-                            body: None,
-                        }),
+                        Ok(_) => {
+                            builder.with_status_code(StatusCode::Created);
+                            builder.with_content_type("application/octet-stream");
+                        }
+
+                        Err(_) => {
+                            builder.with_status_code(StatusCode::NotFound);
+                        }
                     }
                 }
             },
-            Endpoints::NotAvailable => Ok(HttpResponse {
-                status_code: StatusCode::NotFound,
-                content_type: "text/plain".to_string(),
-                content_encoding,
-                content_length: 0,
-                protocol_version: http_request.protocol_version,
-                body: None,
-            }),
-        }
+            Endpoints::NotAvailable => {
+                builder.with_status_code(StatusCode::NotFound);
+            }
+        };
+        Ok(builder.build())
     }
 }
 
@@ -149,12 +113,7 @@ impl std::str::FromStr for Endpoints {
             "/user-agent" => Ok(Self::UserAgent),
             "/sleep" => Ok(Self::Sleep),
             s if s.starts_with("/files/") => Ok(Self::File),
-            _ => Ok(Self::NotAvailable),
-            // _ => Err(format!(
-            //     "Request target does not match any available endpoint: {}",
-            //     request_target
-            // )
-            // .into()),
+            _ => Ok(Self::NotAvailable), // could Err here and map to NotAvailable higher-up ?
         }
     }
 }

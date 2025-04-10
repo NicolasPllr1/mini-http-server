@@ -39,6 +39,73 @@ impl std::fmt::Display for StatusCode {
     }
 }
 
+pub struct HttpResponseBuilder {
+    http_response: HttpResponse,
+}
+
+pub trait Builder<T> {
+    fn new() -> Self;
+    fn build(self) -> T;
+}
+
+impl Builder<HttpResponse> for HttpResponseBuilder {
+    fn new() -> Self {
+        // response with default values
+        Self {
+            http_response: HttpResponse {
+                protocol_version: HttpVersion::Http11,
+                status_code: StatusCode::Ok,
+                content_type: String::from("text/plain"),
+                content_length: 0,
+                content_encoding: None,
+                body: None,
+            },
+        }
+    }
+    fn build(self) -> HttpResponse {
+        self.http_response
+    }
+}
+
+#[allow(dead_code)]
+impl HttpResponseBuilder {
+    pub fn with_protocol_version(&mut self, protocol_version: HttpVersion) {
+        self.http_response.protocol_version = protocol_version;
+    }
+
+    pub fn with_status_code(&mut self, status_code: StatusCode) {
+        self.http_response.status_code = status_code;
+    }
+
+    pub fn with_content_type(&mut self, content_type: &str) {
+        self.http_response.content_type = content_type.to_string();
+    }
+
+    pub fn with_content_length(&mut self, content_length: usize) {
+        self.http_response.content_length = content_length;
+    }
+
+    pub fn with_content_encoding(&mut self, content_encoding: Option<ContentEncoding>) {
+        self.http_response.content_encoding = content_encoding;
+    }
+
+    pub fn with_body(&mut self, body: &str) {
+        self.http_response.body = Some(body.to_string());
+    }
+}
+
+pub trait Buildable<Target, B: Builder<Target>> {
+    // NOTE: gives you an instance of the Builder from the Target
+    // (Target being the type implementing this trait, i.e. being "Buildable")
+    fn builder() -> B;
+}
+
+impl Buildable<HttpResponse, HttpResponseBuilder> for HttpResponse {
+    fn builder() -> HttpResponseBuilder {
+        HttpResponseBuilder::new()
+    }
+}
+
 // Public API
 impl HttpResponse {
     pub fn build_from_request(
