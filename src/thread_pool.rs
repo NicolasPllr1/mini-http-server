@@ -18,15 +18,12 @@ impl Worker {
         let thread = thread::spawn(move || loop {
             let message = receiver.lock().unwrap().recv();
 
-            match message {
-                Ok(job) => {
-                    println!("Worker {id} got a job; executing.");
-                    job();
-                }
-                Err(_) => {
-                    println!("Worker {id} disconnected; shutting down.");
-                    break;
-                }
+            if let Ok(job) = message {
+                println!("Worker {id} got a job; executing.");
+                job();
+            } else {
+                println!("Worker {id} disconnected; shutting down.");
+                break;
             }
         });
         Worker {
@@ -36,13 +33,13 @@ impl Worker {
     }
 }
 
-// Here is the new process that will happen when we create a ThreadPool. We’ll implement the code that sends the closure to the thread after we have Worker set up in this way:
+// Here is the new process that will happen when we create a `ThreadPool`. We’ll implement the code that sends the closure to the thread after we have Worker set up in this way:
 //
 // Define a Worker::new function that takes an id number and returns a Worker instance that holds the id and a thread spawned with an empty closure.
 // In ThreadPool::new, use the for loop counter to generate an id, create a new Worker with that id, and store the worker in the vector.
 
 impl ThreadPool {
-    /// Create a new ThreadPool.
+    /// Create a new `ThreadPool`.
     ///
     /// The size is the number of threads in the pool.
     ///
@@ -57,7 +54,7 @@ impl ThreadPool {
 
         let mut workers = Vec::with_capacity(size);
         for id in 0..size {
-            workers.push(Worker::new(id, Arc::clone(&receiver)))
+            workers.push(Worker::new(id, Arc::clone(&receiver)));
             // create some threads and store them in the vector
         }
 

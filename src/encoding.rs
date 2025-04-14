@@ -8,6 +8,7 @@ use std::io::prelude::*;
 // 2. refactor using combinator/ ? if using custom error
 
 #[derive(Debug, PartialEq, Copy, Clone)]
+#[allow(clippy::module_name_repetitions)]
 pub enum ContentEncoding {
     GZip,
 }
@@ -27,8 +28,7 @@ impl std::str::FromStr for ContentEncoding {
         match encoding_scheme_str {
             "gzip" => Ok(ContentEncoding::GZip),
             _ => Err(format!(
-                "Only gzip supported. Proposed encoding schemes received: {}",
-                encoding_scheme_str
+                "Only gzip supported. Proposed encoding schemes received: {encoding_scheme_str}",
             )),
         }
     }
@@ -43,8 +43,8 @@ impl ContentEncoding {
     pub fn from_header(hdr_val: &str) -> Option<ContentEncoding> {
         // In the header: either a single scheme or a list of schemes
         hdr_val
-            .split(",")
-            .map(|s| s.trim())
+            .split(',')
+            .map(str::trim)
             .filter_map(|s| s.parse::<ContentEncoding>().ok())
             .find(|encoding| *encoding == ContentEncoding::GZip)
     }
@@ -53,11 +53,11 @@ fn gzip_encode_body(body: &str) -> Option<Bytes> {
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
     println!("Body to encode: {}", &body);
     match encoder.write_all(body.as_bytes()) {
-        Ok(_) => {
+        Ok(()) => {
             println!("gzip compression initiated");
         }
         Err(e) => {
-            println!("Error while initiating gzip-compressing the body: {}", e);
+            println!("Error while initiating gzip-compressing the body: {e}");
             println!("Returning None");
             return None;
         }
@@ -68,7 +68,7 @@ fn gzip_encode_body(body: &str) -> Option<Bytes> {
             Some(Bytes::from(encoded_bytes))
         }
         Err(e) => {
-            println!("Error during the gzip-compression : {}", e);
+            println!("Error during the gzip-compression : {e}");
             None
         }
     }

@@ -29,31 +29,31 @@ impl Server {
                 Ok(stream) => {
                     let data_dir = Arc::clone(&self.data_dir); // NOTE: self vs Self vs Server
                     pool.execute(move || {
-                        match Self::handle_stream(stream, Arc::clone(&data_dir)) {
+                        match Self::handle_stream(stream, &data_dir) {
                             Ok(()) => println!("Successfully handled stream"),
-                            Err(e) => eprintln!("Error handling the stream: {}", e), // TODO: propagate
-                                                                                     // the error to the main thread ?
+                            Err(e) => eprintln!("Error handling the stream: {e}"), // TODO: propagate
+                                                                                   // the error to the main thread ?
                         };
                     });
                 }
                 Err(e) => {
-                    return Err(format!("Error accepting the connection: {}", e).into());
+                    return Err(format!("Error accepting the connection: {e}").into());
                 }
             }
         }
         Ok(())
     }
 
-    fn handle_stream(mut stream: TcpStream, data_dir: Arc<String>) -> Result<(), Box<dyn Error>> {
+    fn handle_stream(mut stream: TcpStream, data_dir: &str) -> Result<(), Box<dyn Error>> {
         println!("accepted new connection");
 
         // TODO: if build_from_stream err, then we build error-404 reponse ? always want to answer
         // I guess
         let http_request = HttpRequest::build_from_stream(&mut stream)?;
-        println!("parsed http-request: {:?}", http_request);
+        println!("parsed http-request: {http_request:?}");
 
-        let http_response = HttpResponse::build_from_request(&http_request, &data_dir)?;
-        println!("built http-response: {:?}", http_response);
+        let http_response = HttpResponse::build_from_request(&http_request, data_dir)?;
+        println!("built http-response: {http_response:?}");
 
         http_response.write_to(&mut stream)?;
         Ok(())

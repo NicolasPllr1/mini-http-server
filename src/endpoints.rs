@@ -54,7 +54,7 @@ impl Endpoints {
                 let user_agent_body = http_request
                     .headers
                     .get("User-Agent")
-                    .expect("User-Agent endpoint expects 'User-Agent' header");
+                    .ok_or("User-Agent endpoint expects 'User-Agent' header")?;
 
                 builder.with_content_length(user_agent_body.len());
                 builder.with_body(user_agent_body);
@@ -67,24 +67,24 @@ impl Endpoints {
             }
             Endpoints::File => match http_request.http_method {
                 HttpMethod::GET => match Self::get_file_content(http_request, data_dir) {
-                    Some(file_content) => {
+                    Ok(file_content) => {
                         builder.with_content_type("application/octet-stream");
                         builder.with_content_length(file_content.as_bytes().len());
                         builder.with_body(&file_content);
                     }
-                    None => {
+                    Err(_) => {
                         builder.with_status_code(StatusCode::NotFound);
                     }
                 },
                 HttpMethod::POST => {
-                    let filename = Self::get_target_filename(http_request).unwrap();
-                    let path = format!("{}/{}", data_dir, filename);
+                    let filename = Self::get_target_filename(http_request)?;
+                    let path = format!("{data_dir}/{filename}");
                     let content = http_request
                         .body
                         .clone()
-                        .expect("Body should have been provided");
+                        .ok_or("Body should have been provided")?;
                     match fs::write(path, content) {
-                        Ok(_) => {
+                        Ok(()) => {
                             builder.with_status_code(StatusCode::Created);
                             builder.with_content_type("application/octet-stream");
                         }
@@ -120,19 +120,22 @@ impl std::str::FromStr for Endpoints {
 
 // Private utils
 impl Endpoints {
-    fn get_target_filename(http_request: &HttpRequest) -> Option<&str> {
-        let filename = http_request
+    fn get_target_filename(http_request: &HttpRequest) -> Result<&str, Box<dyn Error>> {
+        http_request
             .request_target
-            .split("/")
+            .split('/')
             .last()
-            .expect("Expected : /files/{filename}");
-        Some(filename)
+            .ok_or("Expected : /files/{filename}".into())
     }
 
-    fn get_file_content(http_request: &HttpRequest, data_dir: &str) -> Option<String> {
-        let filename = Self::get_target_filename(http_request).unwrap();
-        let file_path = format!("{}/{}", data_dir, filename);
+    fn get_file_content(
+        http_request: &HttpRequest,
+        data_dir: &str,
+    ) -> Result<String, Box<dyn Error>> {
+        let filename = Self::get_target_filename(http_request)?;
+        let file_path = format!("{data_dir}/{filename}");
         dbg!(&file_path);
-        fs::read_to_string(file_path).ok()
+        let file_content = fs::read_to_string(file_path)?;
+        Ok(file_content)
     }
 }

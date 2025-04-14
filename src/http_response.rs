@@ -39,6 +39,7 @@ impl std::fmt::Display for StatusCode {
     }
 }
 
+#[allow(clippy::module_name_repetitions)]
 pub struct HttpResponseBuilder {
     http_response: HttpResponse,
 }
@@ -126,7 +127,7 @@ impl HttpResponse {
         // Body if any
         if let Some(body) = &self.body {
             let encoded_body_bytes = if let Some(encoding) = &self.content_encoding {
-                write!(writer, "{}", encoding)?;
+                write!(writer, "{encoding}")?;
                 encoding.encode_body(body)
             } else {
                 Bytes::from(body.as_bytes().to_vec())
@@ -158,13 +159,13 @@ impl Display for HttpResponse {
         // Body if any
         if let Some(body) = &self.body {
             // TODO: why borrowing self.body is needed here ? same
-            // below for content_encoding
+            // below for contentncoding
             if let Some(encoding) = &self.content_encoding {
-                write!(f, "{}", encoding)?;
+                write!(f, "{encoding}")?;
             }
             write!(f, "Content-Length: {}", body.len())?; // TODO: why putting self.body.len() does
                                                           // not work ? ('fn is private')
-            write!(f, "{}", body)?;
+            write!(f, "{body}")?;
         }
 
         write!(f, "\r\n")?;
