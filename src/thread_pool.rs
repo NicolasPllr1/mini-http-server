@@ -14,6 +14,7 @@ struct Worker {
 }
 
 impl Worker {
+    #[must_use]
     fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Worker {
         let thread = thread::spawn(move || loop {
             let message = receiver.lock().unwrap().recv();
@@ -46,23 +47,31 @@ impl ThreadPool {
     /// # Panics
     ///
     /// The `new` function will panic if the size is zero.
+    #[must_use]
     pub fn new(size: usize) -> ThreadPool {
         assert!(size > 0);
 
-        let (sender, receiver) = mpsc::channel();
-        let receiver = Arc::new(Mutex::new(receiver));
+        let (tx, rx) = mpsc::channel(); // transmitter (tx), receiver (rx)
+        let rx = Arc::new(Mutex::new(rx));
 
         let mut workers = Vec::with_capacity(size);
         for id in 0..size {
-            workers.push(Worker::new(id, Arc::clone(&receiver)));
+            workers.push(Worker::new(id, Arc::clone(&rx)));
             // create some threads and store them in the vector
         }
 
         ThreadPool {
             workers,
-            sender: Some(sender),
+            sender: Some(tx),
         }
     }
+    /// Execute a task on the threadpool.
+    /// Creates a `Job` from a task `f` and dispatch it to a worker which will caryy-on the job
+    /// execution.
+    ///
+    /// # Panics
+    ///
+    /// Sending the job to a worker can panic.
     pub fn execute<F>(&self, f: F)
     where
         F: FnOnce() + Send + 'static,

@@ -26,6 +26,9 @@ pub enum Endpoints {
 
 // TODO: explore/compare the trait approach for the endpoints implementations
 impl Endpoints {
+    /// Handles a HTTP request. Each endpoint handles requests in its own way.
+    /// # Errors
+    /// Endpoints can return errors.
     pub fn handle_request(
         &self,
         http_request: &HttpRequest,

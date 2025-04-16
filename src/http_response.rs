@@ -109,6 +109,9 @@ impl Buildable<HttpResponse, HttpResponseBuilder> for HttpResponse {
 
 // Public API
 impl HttpResponse {
+    /// Builds a HTTP response based on an HTTP request
+    /// # Errors
+    /// Endpoints can return errors.
     pub fn build_from_request(
         http_request: &HttpRequest,
         data_dir: &str,
@@ -117,6 +120,9 @@ impl HttpResponse {
         endpoint_requested.handle_request(http_request, data_dir)
     }
 
+    /// Write HTTP response
+    /// # Errors
+    /// Some write steps may return an error.
     pub fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
         // Status line
         write!(writer, "{} {}\r\n", self.protocol_version, self.status_code)?;

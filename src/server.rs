@@ -13,6 +13,7 @@ pub struct Server {
 }
 
 impl Server {
+    #[must_use]
     pub fn new(address: &str, pool_size: usize, data_dir: &str) -> Self {
         Server {
             address: address.to_string(),
@@ -20,6 +21,12 @@ impl Server {
             data_dir: data_dir.to_string().into(),
         }
     }
+
+    /// Start the server running.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when an incoming TCP connection can't be accepted
     pub fn run(&self) -> Result<(), Box<dyn Error>> {
         let listener = TcpListener::bind(&self.address)?;
         let pool = &self.thread_pool;

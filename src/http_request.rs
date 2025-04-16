@@ -58,7 +58,7 @@ impl HttpRequestBuilder {
     }
     fn with_headers(&mut self, headers: &HashMap<String, String>) {
         // TODO: possible to get rid of this clone ? How bad is this, design&perf wise ?
-        self.http_request.headers = headers.clone();
+        self.http_request.headers.clone_from(headers);
     }
     fn with_body(&mut self, body: &str) {
         self.http_request.body = Some(body.to_string());
@@ -78,6 +78,10 @@ impl Buildable<HttpRequest, HttpRequestBuilder> for HttpRequest {
 }
 
 impl HttpRequest {
+    /// Builds a HTTP request from a parsing an incoming stream of bytes, that should
+    /// corresponds to a valid HTTP request.
+    /// # Errors
+    /// Some parsing steps may return errors.
     pub fn build_from_stream(stream: &mut TcpStream) -> Result<HttpRequest, Box<dyn Error>> {
         let mut builder = HttpRequest::builder();
         let mut reader = BufReader::new(&mut *stream);
