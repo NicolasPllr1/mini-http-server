@@ -253,8 +253,8 @@ mod tests {
 
         let response_str = String::from_utf8(output).unwrap();
         assert!(response_str.contains("200 OK"));
-        assert!(response_str.contains("content-type: text/plain"));
-        assert!(response_str.contains("content-length: 4"));
+        assert!(response_str.contains("Content-Type: text/plain"));
+        assert!(response_str.contains("Content-Length: 4"));
         assert!(response_str.contains("test"));
     }
 
@@ -322,7 +322,7 @@ mod tests {
         // Only check the headers portion which is not compressed
         let headers_str = String::from_utf8_lossy(&rcv_buff);
         assert!(headers_str.contains("200 OK"));
-        assert!(headers_str.contains("content-type: text/plain"));
+        assert!(headers_str.contains("Content-Type: text/plain"));
         assert!(headers_str.contains("Content-Encoding: gzip"));
     }
 }
