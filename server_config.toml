@@ -1,4 +1,0 @@
-[server]
-address = 127.0.0.1:4221
-pool_size = 4
-data_dir = data

@@ -85,7 +85,13 @@ impl ConfigBuilder {
     }
     fn from_config_file(cfg_path: &str) -> Self {
         use std::fs;
-        let content = fs::read_to_string(cfg_path).unwrap(); // TODO: if config file does not exist
+        let content = match fs::read_to_string(cfg_path) {
+            Ok(content) => content,
+            Err(err) => {
+                eprintln!("Warning: Failed to read config file '{cfg_path}': {err}");
+                return Self::new();
+            }
+        };
 
         let mut builder = Self::new();
 
