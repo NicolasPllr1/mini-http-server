@@ -57,7 +57,6 @@ impl ThreadPool {
         let mut workers = Vec::with_capacity(size);
         for id in 0..size {
             workers.push(Worker::new(id, Arc::clone(&rx)));
-            // create some threads and store them in the vector
         }
 
         ThreadPool {
@@ -66,7 +65,7 @@ impl ThreadPool {
         }
     }
     /// Execute a task on the threadpool.
-    /// Creates a `Job` from a task `f` and dispatch it to a worker which will caryy-on the job
+    /// Creates a `Job` from a task `f` and dispatch it to a worker which will carry-on the job
     /// execution.
     ///
     /// # Panics
