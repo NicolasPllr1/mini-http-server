@@ -1,10 +1,10 @@
-pub mod encoding;
-pub mod endpoints;
-pub mod http_commons;
-pub mod http_request;
-pub mod http_response;
-pub mod thread_pool;
+mod encoding;
+mod endpoints;
+mod http_commons;
+mod http_request;
+mod http_response;
+mod thread_pool;
 
-pub mod server;
+mod server;
 
 pub use server::Server;

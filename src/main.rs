@@ -1,7 +1,7 @@
 use std::env;
 use std::error::Error;
 
-use flyweight_http_server::server::Server;
+use flyweight_http_server::Server;
 
 //TODO:
 // 1. args config, with proper parsing like in the Book
