@@ -8,5 +8,5 @@ mod thread_pool;
 mod config;
 mod server;
 
-pub use config::{Builder, Config};
+pub use config::Builder;
 pub use server::Server;
