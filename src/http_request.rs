@@ -30,7 +30,7 @@ impl Builder<HttpRequest> for HttpRequestBuilder {
         // request with default values
         Self {
             http_request: HttpRequest {
-                http_method: HttpMethod::GET,
+                http_method: HttpMethod::Get,
                 request_target: String::new(),
                 protocol_version: HttpVersion::Http11,
                 headers: HashMap::new(),
@@ -141,8 +141,8 @@ impl HttpRequest {
 
 #[derive(Debug, Clone, Copy)]
 pub enum HttpMethod {
-    GET,
-    POST,
+    Get,
+    Post,
 }
 
 impl std::str::FromStr for HttpMethod {
@@ -150,8 +150,8 @@ impl std::str::FromStr for HttpMethod {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "GET" => Ok(Self::GET),
-            "POST" => Ok(Self::POST),
+            "GET" => Ok(Self::Get),
+            "POST" => Ok(Self::Post),
             _ => Err("Unsupported HTTP method".into()),
         }
     }

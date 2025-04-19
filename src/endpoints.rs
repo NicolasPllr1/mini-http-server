@@ -69,7 +69,7 @@ impl Endpoints {
                 builder.with_body(&sleep_msg);
             }
             Endpoints::File => match http_request.http_method {
-                HttpMethod::GET => match Self::get_file_content(http_request, data_dir) {
+                HttpMethod::Get => match Self::get_file_content(http_request, data_dir) {
                     Ok(file_content) => {
                         builder.with_content_type("application/octet-stream");
                         builder.with_content_length(file_content.as_bytes().len());
@@ -79,7 +79,7 @@ impl Endpoints {
                         builder.with_status_code(StatusCode::NotFound);
                     }
                 },
-                HttpMethod::POST => {
+                HttpMethod::Post => {
                     let filename = Self::get_target_filename(http_request)?;
                     let path = format!("{data_dir}/{filename}");
                     let content = http_request

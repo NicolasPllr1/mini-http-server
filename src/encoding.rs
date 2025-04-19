@@ -36,7 +36,7 @@ impl std::str::FromStr for ContentEncoding {
 
 impl ContentEncoding {
     #[must_use]
-    pub fn encode_body(&self, body: &str) -> Bytes {
+    pub fn encode_body(self, body: &str) -> Bytes {
         match self {
             ContentEncoding::GZip => gzip_encode_body(body).unwrap_or_default(),
         }
