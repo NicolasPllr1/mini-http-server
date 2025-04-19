@@ -5,6 +5,8 @@ mod http_request;
 mod http_response;
 mod thread_pool;
 
+mod config;
 mod server;
 
+pub use config::{Builder, Config};
 pub use server::Server;

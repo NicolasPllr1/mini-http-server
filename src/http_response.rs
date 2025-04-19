@@ -191,7 +191,7 @@ mod tests {
 
     fn create_test_request(path: &str) -> HttpRequest {
         HttpRequest {
-            http_method: HttpMethod::GET,
+            http_method: HttpMethod::Get,
             request_target: path.to_string(),
             protocol_version: HttpVersion::Http11,
             headers: HashMap::new(),
