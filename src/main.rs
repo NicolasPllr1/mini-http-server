@@ -54,7 +54,7 @@ impl ConfigBuilder {
                         builder.pool_size = Some(size.parse().unwrap());
                     }
                 }
-                "--data-dir" | "-d" => {
+                "--data-dir" | "--directory" | "-d" => {
                     if let Some(dir) = iter.next() {
                         builder.data_dir = Some(dir.to_string());
                     }
