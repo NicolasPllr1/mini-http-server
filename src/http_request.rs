@@ -140,8 +140,7 @@ impl HttpRequest {
     pub fn keep_alive(&self) -> bool {
         match self.headers.get("Connection") {
             Some(s) if s == "close" => false,
-            Some(_) => true,
-            None => true,
+            Some(_) | None => true,
         }
     }
 }
