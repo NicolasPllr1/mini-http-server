@@ -45,7 +45,7 @@ impl Endpoints {
 
         builder.with_content_encoding(content_encoding);
 
-        builder.with_conn_close(http_request.dont_keep_alive());
+        builder.with_conn_close(!http_request.keep_alive());
 
         match self {
             Endpoints::UrlPath => {}

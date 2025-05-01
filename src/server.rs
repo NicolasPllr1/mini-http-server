@@ -64,7 +64,7 @@ impl Server {
         while keep_alive {
             let http_request = HttpRequest::build_from_stream(&mut stream)?;
 
-            keep_alive = !http_request.dont_keep_alive();
+            keep_alive = http_request.keep_alive();
             println!("keep-alive: {keep_alive}");
 
             println!("parsed http-request: {http_request:?}");
