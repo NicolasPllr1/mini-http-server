@@ -148,7 +148,7 @@ impl HttpResponse {
             // write!(writer, "\r\n")?;
         } else {
             // no body, the end
-            // write!(writer, "\r\n")?;
+            write!(writer, "\r\n")?;
         }
         Ok(())
     }
