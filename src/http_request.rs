@@ -137,6 +137,13 @@ impl HttpRequest {
 
         Ok(builder.build())
     }
+    pub fn dont_keep_alive(&self) -> bool {
+        match self.headers.get("Connection") {
+            None => false,
+            Some(s) if s == "close" => false,
+            Some(_) => true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

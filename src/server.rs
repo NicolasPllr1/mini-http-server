@@ -1,6 +1,7 @@
 use crate::http_request::HttpRequest;
 use crate::http_response::HttpResponse;
 use crate::thread_pool::ThreadPool;
+use std::time::Duration;
 
 use std::error::Error;
 use std::net::{TcpListener, TcpStream};
@@ -53,16 +54,27 @@ impl Server {
 
     fn handle_stream(mut stream: TcpStream, data_dir: &str) -> Result<(), Box<dyn Error>> {
         println!("accepted new connection");
+        stream.set_read_timeout(Some(Duration::new(30, 0)))?; // 30s
 
         // TODO: if build_from_stream err, then we build error-404 reponse ? always want to answer
         // I guess
-        let http_request = HttpRequest::build_from_stream(&mut stream)?;
-        println!("parsed http-request: {http_request:?}");
 
-        let http_response = HttpResponse::build_from_request(&http_request, data_dir)?;
-        println!("built http-response: {http_response:?}");
+        let mut keep_alive = true;
 
-        http_response.write_to(&mut stream)?;
+        while keep_alive {
+            let http_request = HttpRequest::build_from_stream(&mut stream)?;
+
+            keep_alive = !http_request.dont_keep_alive();
+            println!("keep-alive: {keep_alive}");
+
+            println!("parsed http-request: {http_request:?}");
+
+            let http_response = HttpResponse::build_from_request(&http_request, data_dir)?;
+            println!("built http-response: {http_response:?}");
+
+            http_response.write_to(&mut stream)?;
+        }
+
         Ok(())
     }
 }
