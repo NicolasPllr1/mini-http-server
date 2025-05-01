@@ -174,7 +174,7 @@ impl Display for HttpResponse {
             write!(f, "{body}")?;
         }
 
-        write!(f, "\r\n")?;
+        // write!(f, "\r\n")?;
         Ok(())
     }
 }
