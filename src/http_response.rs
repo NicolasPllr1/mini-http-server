@@ -145,10 +145,10 @@ impl HttpResponse {
                 encoded_body_bytes.len()
             )?;
             writer.write_all(&encoded_body_bytes)?;
-            write!(writer, "\r\n")?;
+            // write!(writer, "\r\n")?;
         } else {
             // no body, the end
-            write!(writer, "\r\n")?;
+            // write!(writer, "\r\n")?;
         }
         Ok(())
     }
