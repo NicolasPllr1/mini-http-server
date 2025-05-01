@@ -19,6 +19,7 @@ pub struct HttpResponse {
     pub content_type: String,
     pub content_length: usize,
     pub content_encoding: Option<ContentEncoding>,
+    pub conn_close: bool,
     pub body: Option<String>,
 }
 
@@ -59,6 +60,7 @@ impl Builder<HttpResponse> for HttpResponseBuilder {
                 content_type: String::from("text/plain"),
                 content_length: 0,
                 content_encoding: None,
+                conn_close: false,
                 body: None,
             },
         }
@@ -88,6 +90,10 @@ impl HttpResponseBuilder {
 
     pub fn with_content_encoding(&mut self, content_encoding: Option<ContentEncoding>) {
         self.http_response.content_encoding = content_encoding;
+    }
+
+    pub fn with_conn_close(&mut self, conn_close: bool) {
+        self.http_response.conn_close = conn_close;
     }
 
     pub fn with_body(&mut self, body: &str) {
@@ -130,6 +136,11 @@ impl HttpResponse {
         // Content-type
         write!(writer, "Content-Type: {}\r\n", self.content_type)?;
 
+        // Close connection
+        if self.conn_close {
+            write!(writer, "Connection: close\r\n")?;
+        }
+
         // Body if any
         if let Some(body) = &self.body {
             let encoded_body_bytes = if let Some(encoding) = &self.content_encoding {
@@ -161,6 +172,11 @@ impl Display for HttpResponse {
 
         // Content-type
         write!(f, "Content-Type: {}\r\n", self.content_type)?;
+
+        // Close connection
+        if self.conn_close {
+            write!(f, "Connection: close\r\n")?;
+        }
 
         // Body if any
         if let Some(body) = &self.body {
