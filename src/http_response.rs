@@ -1,7 +1,7 @@
 use crate::encoding::ContentEncoding;
 use crate::endpoints::{EndpointError, Endpoints};
 use crate::http_commons::HttpVersion;
-use crate::http_request::HttpRequest;
+use crate::http_request::{HttpRequest, RequestError};
 use bytes::Bytes;
 
 use std::fmt::{self, Display};
@@ -30,6 +30,7 @@ pub enum StatusCode {
     Created,
     NotImplemented,
     InternalServerError,
+    BadRequest,
 }
 
 impl std::fmt::Display for StatusCode {
@@ -40,6 +41,7 @@ impl std::fmt::Display for StatusCode {
             StatusCode::Created => write!(f, "201 Created"),
             StatusCode::NotImplemented => write!(f, "501 Not Implemented"),
             StatusCode::InternalServerError => write!(f, "500 Internal Server Error"),
+            StatusCode::BadRequest => write!(f, "400 Bad Request"),
         }
     }
 }
@@ -157,6 +159,17 @@ impl HttpResponse {
             builder.with_status_code(StatusCode::InternalServerError);
             builder.build()
         }
+    }
+    pub fn new_from_bad_request(error: &RequestError) -> HttpResponse {
+        let mut builder = HttpResponse::builder();
+
+        builder.with_status_code(StatusCode::BadRequest);
+
+        let body = error.to_string();
+        builder.with_body(&body);
+        builder.with_content_length(body.len());
+
+        builder.build()
     }
 
     /// Write HTTP response

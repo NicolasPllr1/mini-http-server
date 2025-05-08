@@ -62,17 +62,25 @@ impl Server {
         let mut keep_alive = true;
 
         while keep_alive {
-            let http_request = HttpRequest::build_from_stream(&mut stream)?;
+            match HttpRequest::build_from_stream(&mut stream) {
+                Ok(http_request) => {
+                    println!("parsed http-request: {http_request:?}");
 
-            keep_alive = http_request.keep_alive();
-            println!("keep-alive: {keep_alive}");
+                    keep_alive = http_request.keep_alive();
+                    println!("keep-alive: {keep_alive}");
 
-            println!("parsed http-request: {http_request:?}");
-
-            let http_response = HttpResponse::new_from_request(&http_request, data_dir);
-            println!("built http-response: {http_response:?}");
-
-            http_response.write_to(&mut stream)?;
+                    let http_response = HttpResponse::new_from_request(&http_request, data_dir);
+                    println!("built http-response: {http_response:?}");
+                    http_response.write_to(&mut stream)?;
+                }
+                Err(e) => {
+                    eprintln!("error parsing the http-request: {e}");
+                    keep_alive = false; // terminate connection
+                    let http_response = HttpResponse::new_from_bad_request(&e);
+                    println!("built http-response: {http_response:?}");
+                    http_response.write_to(&mut stream)?;
+                }
+            }
         }
 
         Ok(())
