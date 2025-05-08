@@ -28,6 +28,8 @@ pub enum StatusCode {
     Ok,
     NotFound,
     Created,
+    NotImplemented,
+    InternalServerError,
 }
 
 impl std::fmt::Display for StatusCode {
@@ -36,6 +38,8 @@ impl std::fmt::Display for StatusCode {
             StatusCode::Ok => write!(f, "200 OK"),
             StatusCode::NotFound => write!(f, "404 Not Found"),
             StatusCode::Created => write!(f, "201 Created"),
+            StatusCode::NotImplemented => write!(f, "501 Not Implemented"),
+            StatusCode::InternalServerError => write!(f, "500 Internal Server Error"),
         }
     }
 }
@@ -139,12 +143,20 @@ impl HttpResponse {
     /// Builds a HTTP response based on an HTTP request
     /// # Errors
     /// Endpoints can return errors.
-    pub fn build_from_request(
-        http_request: &HttpRequest,
-        data_dir: &Path,
-    ) -> Result<HttpResponse, ResponseError> {
-        let endpoint_requested = &http_request.request_target.parse::<Endpoints>()?;
-        Ok(endpoint_requested.handle_request(http_request, data_dir)?)
+    pub fn new_from_request(http_request: &HttpRequest, data_dir: &Path) -> HttpResponse {
+        if let Ok(endpoint_requested) = &http_request.request_target.parse::<Endpoints>() {
+            if let Ok(response) = endpoint_requested.handle_request(http_request, data_dir) {
+                response
+            } else {
+                let mut builder = HttpResponse::builder();
+                builder.with_status_code(StatusCode::NotImplemented);
+                builder.build()
+            }
+        } else {
+            let mut builder = HttpResponse::builder();
+            builder.with_status_code(StatusCode::InternalServerError);
+            builder.build()
+        }
     }
 
     /// Write HTTP response

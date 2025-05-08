@@ -69,7 +69,7 @@ impl Server {
 
             println!("parsed http-request: {http_request:?}");
 
-            let http_response = HttpResponse::build_from_request(&http_request, data_dir)?;
+            let http_response = HttpResponse::new_from_request(&http_request, data_dir);
             println!("built http-response: {http_response:?}");
 
             http_response.write_to(&mut stream)?;
