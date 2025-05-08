@@ -1,10 +1,11 @@
 #![allow(dead_code)]
-use crate::http_commons::HttpVersion;
+use crate::http_commons::{HttpVersion, HttpVersionParseError};
 
 use std::collections::HashMap;
-use std::error::Error;
+use std::fmt;
 use std::io::{BufRead, BufReader, Read};
 use std::net::TcpStream;
+use std::num::ParseIntError;
 
 #[derive(Debug)]
 pub struct HttpRequest {
@@ -15,7 +16,50 @@ pub struct HttpRequest {
     pub body: Option<String>,
 }
 
-pub enum RequestError {}
+#[derive(Debug)]
+pub enum RequestError {
+    Io(std::io::Error),
+    RequestLine(String),
+    Method(String),
+    ProtocolVersion(String),
+    Header(String),
+    BodyUtf8(std::string::FromUtf8Error),
+    BodyContentLength(ParseIntError),
+}
+
+impl From<std::io::Error> for RequestError {
+    fn from(e: std::io::Error) -> RequestError {
+        RequestError::Io(e)
+    }
+}
+
+impl From<HttpMethodParseError> for RequestError {
+    fn from(e: HttpMethodParseError) -> RequestError {
+        RequestError::Method(e.found)
+    }
+}
+impl From<HttpVersionParseError> for RequestError {
+    fn from(e: HttpVersionParseError) -> RequestError {
+        RequestError::ProtocolVersion(e.found)
+    }
+}
+
+impl fmt::Display for RequestError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RequestError::RequestLine(s) => write!(f, "malformed request line: {s}"),
+            RequestError::Method(m) => write!(f, "unsupported HTTP method: {m}"),
+            RequestError::ProtocolVersion(v) => write!(f, "unsupported HTTP protocol version: {v}"),
+            RequestError::Header(h) => write!(f, "invalid header: {h}"),
+            RequestError::BodyUtf8(b) => write!(f, "body is not valid UTF-8: {b}"),
+            RequestError::BodyContentLength(l) => {
+                write!(f, "error parsing the body length: {l}")
+            }
+            RequestError::Io(_) => write!(f, "I/O while reading request"),
+        }
+    }
+}
+impl std::error::Error for RequestError {}
 
 #[allow(clippy::module_name_repetitions)]
 pub struct HttpRequestBuilder {
@@ -83,8 +127,8 @@ impl HttpRequest {
     /// Builds a HTTP request from a parsing an incoming stream of bytes, that should
     /// corresponds to a valid HTTP request.
     /// # Errors
-    /// Some parsing steps may return errors.
-    pub fn build_from_stream(stream: &mut TcpStream) -> Result<HttpRequest, Box<dyn Error>> {
+    /// Returns a `RequestError` variant
+    pub fn build_from_stream(stream: &mut TcpStream) -> Result<HttpRequest, RequestError> {
         let mut builder = HttpRequest::builder();
         let mut reader = BufReader::new(&mut *stream);
 
@@ -98,9 +142,10 @@ impl HttpRequest {
             .split_whitespace()
             .collect::<Vec<_>>()
             .try_into()
-            .map_err(|e| format!("Invalid HTTP request-line. Expected: <method> <request-target> <protocol-version>. Got: {e:?}"))?;
+            .map_err(|_| RequestError::RequestLine(request_line.to_string()))?;
+        // .map_err(|e| format!("Invalid HTTP request-line. Expected: <method> <request-target> <protocol-version>. Got: {e:?}"))?;
 
-        let http_method = http_method.parse::<HttpMethod>()?; // turbofish yeah + shadowing
+        let http_method = http_method.parse::<HttpMethod>()?; // turbofish yeah + shadowing + ?
         let protocol_version = protocol_version.parse::<HttpVersion>()?;
 
         builder.with_method(http_method);
@@ -115,8 +160,9 @@ impl HttpRequest {
             if content == "\r\n" {
                 break;
             }
-            let (header_name, header_value) =
-                content.split_once(':').ok_or("Invalid header section")?;
+            let (header_name, header_value) = content
+                .split_once(':')
+                .ok_or(RequestError::Header(content.to_string()))?;
             headers.insert(header_name.to_string(), header_value.trim().to_string());
         }
 
@@ -126,13 +172,12 @@ impl HttpRequest {
         if let Some(n_bytes_str) = headers.get("Content-Length") {
             let n_bytes = n_bytes_str
                 .parse::<usize>()
-                .map_err(|e| format!("Invalid content-length (for body): {e}"))?;
+                .map_err(RequestError::BodyContentLength)?;
 
             let mut body_buf = vec![0; n_bytes];
             reader.read_exact(&mut body_buf)?;
 
-            let body = String::from_utf8(body_buf)
-                .map_err(|e| format!("Invalid utf-8 for body content: {e}"))?;
+            let body = String::from_utf8(body_buf).map_err(RequestError::BodyUtf8)?;
 
             builder.with_body(&body);
         };
@@ -153,14 +198,19 @@ pub enum HttpMethod {
     Post,
 }
 
+#[derive(Debug)]
+pub struct HttpMethodParseError {
+    pub found: String,
+}
+
 impl std::str::FromStr for HttpMethod {
-    type Err = String; // NOTE: what/why ?
+    type Err = HttpMethodParseError; // NOTE: what/why ?
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "GET" => Ok(Self::Get),
             "POST" => Ok(Self::Post),
-            _ => Err("Unsupported HTTP method".into()),
+            _ => Err(HttpMethodParseError { found: s.into() }),
         }
     }
 }

@@ -5,14 +5,19 @@ pub enum HttpVersion {
     // Http3,
 }
 
+#[derive(Debug)]
+pub struct HttpVersionParseError {
+    pub found: String,
+}
+
 impl std::str::FromStr for HttpVersion {
-    type Err = String;
+    type Err = HttpVersionParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "HTTP/1.1" => Ok(Self::Http11),
             "HTTP/2" => Ok(Self::Http2),
-            _ => Err("Unsupported HTTP version".into()),
+            _ => Err(HttpVersionParseError { found: s.into() }),
         }
     }
 }
