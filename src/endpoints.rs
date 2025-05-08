@@ -6,6 +6,7 @@ use crate::http_response::{Buildable, Builder, HttpResponse};
 
 use std::error::Error;
 use std::fs;
+use std::path::Path;
 use std::thread;
 use std::time::Duration; // for the 'Sleep' endpoint (used to test multi-threading)
 
@@ -32,7 +33,7 @@ impl Endpoints {
     pub fn handle_request(
         &self,
         http_request: &HttpRequest,
-        data_dir: &str,
+        data_dir: &Path,
     ) -> Result<HttpResponse, Box<dyn Error>> {
         let mut builder = HttpResponse::builder();
 
@@ -83,12 +84,12 @@ impl Endpoints {
                 },
                 HttpMethod::Post => {
                     let filename = Self::get_target_filename(http_request)?;
-                    let path = format!("{data_dir}/{filename}");
+                    let file_path = data_dir.join(filename);
                     let content = http_request
                         .body
                         .clone()
                         .ok_or("Body should have been provided")?;
-                    match fs::write(path, content) {
+                    match fs::write(file_path, content) {
                         Ok(()) => {
                             builder.with_status_code(StatusCode::Created);
                             builder.with_content_type("application/octet-stream");
@@ -135,10 +136,10 @@ impl Endpoints {
 
     fn get_file_content(
         http_request: &HttpRequest,
-        data_dir: &str,
+        data_dir: &Path,
     ) -> Result<String, Box<dyn Error>> {
         let filename = Self::get_target_filename(http_request)?;
-        let file_path = format!("{data_dir}/{filename}");
+        let file_path = data_dir.join(filename);
         dbg!(&file_path);
         let file_content = fs::read_to_string(file_path)?;
         Ok(file_content)

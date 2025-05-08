@@ -15,6 +15,8 @@ pub struct HttpRequest {
     pub body: Option<String>,
 }
 
+pub enum RequestError {}
+
 #[allow(clippy::module_name_repetitions)]
 pub struct HttpRequestBuilder {
     http_request: HttpRequest,

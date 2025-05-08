@@ -1,31 +1,33 @@
 use flyweight_http_server::Server;
 
-use std::error::Error;
 use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::net::{SocketAddr, TcpStream};
+use std::path::PathBuf;
+use std::str::FromStr;
 use std::thread;
 use std::time::Duration;
 
 pub struct TestServer {
-    address: String,
+    address: SocketAddr,
 }
 
 impl TestServer {
     pub fn new() -> Self {
         // Use a fixed port for simplicity, or choose a random available port
         let port = 8080;
-        let address = format!("127.0.0.1:{}", port);
+        let address = SocketAddr::from_str(&format!("127.0.0.1:{}", port)).unwrap();
 
         TestServer { address }
     }
 
     pub fn run(&self) {
         // Clone the address for the thread
-        let address = self.address.clone();
+        let address = self.address;
+        let data_dir = PathBuf::from_str("test_data").unwrap();
 
         // Start server in background thread
         thread::spawn(move || {
-            let server = Server::new(&address, 4, "test_data");
+            let server = Server::new(&address, 4, &data_dir);
             // This runs in an infinite loop
             let _ = server.run();
         });

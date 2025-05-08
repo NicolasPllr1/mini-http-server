@@ -1,14 +1,58 @@
-#[derive(Debug, Clone)]
+use std::{
+    fmt, fs,
+    net::{AddrParseError, IpAddr, Ipv4Addr, SocketAddr},
+    num::ParseIntError,
+    path::PathBuf,
+};
+
+#[derive(Debug)]
 pub struct Config {
-    pub server_addr: String,
+    pub server_addr: SocketAddr,
     pub pool_size: usize,
-    pub data_dir: String, // TODO: change to Option<String> to signal abscence of data_dir set ?
+    pub data_dir: PathBuf, // PathBuf vs Path
 }
 
+#[allow(clippy::module_name_repetitions)]
+#[derive(Debug)]
+pub enum ConfigError {
+    PoolSizeZero,
+    PoolSizeParseError(ParseIntError),
+    BadServerAddr(AddrParseError),
+    DataDirDoesNotExists,
+    DataDirIoError(std::io::Error),
+    UnknownFlag(String),
+    MissingValue(&'static str),
+}
+
+impl From<ParseIntError> for ConfigError {
+    fn from(e: ParseIntError) -> ConfigError {
+        ConfigError::PoolSizeParseError(e)
+    }
+}
+impl From<AddrParseError> for ConfigError {
+    fn from(e: AddrParseError) -> ConfigError {
+        ConfigError::BadServerAddr(e)
+    }
+}
+
+impl From<std::io::Error> for ConfigError {
+    fn from(e: std::io::Error) -> ConfigError {
+        ConfigError::DataDirIoError(e)
+    }
+}
+
+impl fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Config error: {self:?}")
+    }
+}
+
+impl std::error::Error for ConfigError {} // empty impl ?!
+
 pub struct Builder {
-    server_addr: Option<String>,
+    server_addr: Option<SocketAddr>,
     pool_size: Option<usize>,
-    data_dir: Option<String>,
+    data_dir: Option<PathBuf>,
 }
 
 impl Builder {
@@ -22,85 +66,112 @@ impl Builder {
 
     #[must_use]
     pub fn build(self) -> Config {
+        let default_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
+        let default_data_dir = PathBuf::new();
         Config {
-            server_addr: self
-                .server_addr
-                .unwrap_or_else(|| "127.0.0.1:4221".to_string()),
+            server_addr: self.server_addr.unwrap_or(default_socket),
             pool_size: self.pool_size.unwrap_or(10),
-            data_dir: self.data_dir.unwrap_or_else(|| "./data".to_string()),
+            data_dir: self.data_dir.unwrap_or(default_data_dir),
         }
     }
 
-    #[must_use]
     /// Config builder from CLI args
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the pool-size can't be parsed to usize
-    pub fn from_cli_args(args: &[String]) -> Self {
+    /// Returns a `ConfigError` variant
+    pub fn from_cli_args(args: &[String]) -> Result<Self, ConfigError> {
         let mut builder = Self::new();
         let mut iter = args.iter().peekable();
+        iter.next(); // executable path
         while let Some(arg) = iter.next() {
             match arg.as_str() {
                 "--address" | "-a" => {
-                    if let Some(addr) = iter.next() {
-                        builder.server_addr = Some(addr.to_string());
-                    }
+                    let addr = iter
+                        .next()
+                        .ok_or(ConfigError::MissingValue("--address"))?
+                        .parse::<SocketAddr>()?;
+                    builder.server_addr = Some(addr);
                 }
                 "--pool-size" | "-s" => {
-                    if let Some(size) = iter.next() {
-                        builder.pool_size = Some(size.parse().unwrap());
+                    let size = iter
+                        .next()
+                        .ok_or(ConfigError::MissingValue("--pool-size"))?
+                        .parse()?;
+
+                    if size == 0 {
+                        return Err(ConfigError::PoolSizeZero);
                     }
+
+                    builder.pool_size = Some(size);
                 }
                 "--data-dir" | "--directory" | "-d" => {
-                    if let Some(dir) = iter.next() {
-                        builder.data_dir = Some(dir.to_string());
+                    let dir_path = iter.next().ok_or(ConfigError::MissingValue("--data-dir"))?;
+                    let dir_path = fs::canonicalize(dir_path)?; // no need for mut ?! for
+                                                                // shadowing here ?
+                    match fs::exists(&dir_path) {
+                        Ok(true) => builder.data_dir = Some(dir_path),
+                        Ok(false) => return Err(ConfigError::DataDirDoesNotExists),
+                        Err(e) => return Err(ConfigError::DataDirIoError(e)),
                     }
                 }
                 _ => {
-                    eprintln!("CLI argument not recognize: {arg}");
+                    return Err(ConfigError::UnknownFlag(format!(
+                        "Unknown CLI argument flag: {arg}"
+                    )));
+
+                    // TODO: detect duplicate args
                 }
             }
         }
 
-        builder
+        Ok(builder)
     }
 
-    #[must_use]
     /// Config builder from env. variables
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the pool-size can't be parsed to usize
-    pub fn from_env() -> Self {
+    /// Returns a `ConfigError` variant
+    pub fn from_env() -> Result<Self, ConfigError> {
         let mut builder = Self::new();
 
         if let Ok(val) = std::env::var("ADDRESS") {
-            builder.server_addr = Some(val);
+            let addr = val.parse::<SocketAddr>()?;
+            builder.server_addr = Some(addr);
         }
         if let Ok(val) = std::env::var("POOL_SIZE") {
-            builder.pool_size = Some(val.parse().unwrap());
+            let size = val.parse::<usize>()?;
+            if size == 0 {
+                return Err(ConfigError::PoolSizeZero);
+            }
+            builder.pool_size = Some(size);
         }
         if let Ok(val) = std::env::var("DATA_DIR") {
-            builder.data_dir = Some(val);
+            let dir_path = fs::canonicalize(val)?; // no need for mut ?! for
+                                                   // shadowing here ?
+            match fs::exists(&dir_path) {
+                Ok(true) => builder.data_dir = Some(dir_path),
+                Ok(false) => return Err(ConfigError::DataDirDoesNotExists),
+                Err(e) => return Err(ConfigError::DataDirIoError(e)),
+            }
         }
 
-        builder
+        Ok(builder)
     }
 
-    #[must_use]
     /// Config builder from env. variables
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the pool-size can't be parsed to usize
-    pub fn from_config_file(cfg_path: &str) -> Self {
+    /// Returns a `ConfigError` variant
+    pub fn from_config_file(cfg_path: &str) -> Result<Self, ConfigError> {
         use std::fs;
         let content = match fs::read_to_string(cfg_path) {
             Ok(content) => content,
             Err(err) => {
                 eprintln!("Warning: Failed to read config file '{cfg_path}': {err}");
-                return Self::new();
+                return Ok(Self::new());
             }
         };
 
@@ -118,22 +189,37 @@ impl Builder {
                     let cfg_key = cfg_key.trim();
                     let cfg_value = cfg_value.trim();
                     match cfg_key {
-                        "address" => builder.server_addr = Some(cfg_value.to_string()),
-                        "pool_size" => builder.pool_size = Some(cfg_value.parse().unwrap()),
-                        "data_dir" => builder.data_dir = Some(cfg_value.to_string()),
+                        "address" => builder.server_addr = Some(cfg_value.parse::<SocketAddr>()?),
+                        "pool_size" => {
+            let size = cfg_value.parse::<usize>()?;
+            if size == 0 {
+                return Err(ConfigError::PoolSizeZero);
+            }
+            builder.pool_size = Some(size);
+
+                        }
+                        "data_dir" => {
+            let dir_path = fs::canonicalize(cfg_value)?; // no need for mut ?! for
+                                                   // shadowing here ?
+            match fs::exists(&dir_path) {
+                Ok(true) => builder.data_dir = Some(dir_path),
+                Ok(false) => return Err(ConfigError::DataDirDoesNotExists),
+                Err(e) => return Err(ConfigError::DataDirIoError(e)),
+            }}
+,
                         _ => eprintln!("Warning: unknown key-value pair found in con)fig file [server] section: {cfg_key} = {cfg_value}"),
                     }
                 }
             }
         }
 
-        builder
+        Ok(builder)
     }
 
     #[must_use]
     pub fn merge(&self, other: &Builder) -> Builder {
         Builder {
-            server_addr: self.server_addr.clone().or(other.server_addr.clone()),
+            server_addr: self.server_addr.or(other.server_addr),
             pool_size: self.pool_size.or(other.pool_size), // NOTE: usize is Copy, no clone needed
             data_dir: self.data_dir.clone().or(other.data_dir.clone()),
         }

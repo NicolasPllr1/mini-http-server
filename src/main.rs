@@ -11,9 +11,9 @@ use flyweight_http_server::Server;
 pub fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
 
-    let cli_cfg = Builder::from_cli_args(&args);
-    let file_cfg = Builder::from_config_file("server_config.toml");
-    let env_cfg = Builder::from_env();
+    let cli_cfg = Builder::from_cli_args(&args)?;
+    let file_cfg = Builder::from_config_file("server_config.toml")?;
+    let env_cfg = Builder::from_env()?;
 
     let cfg = cli_cfg.merge(&file_cfg).merge(&env_cfg).build();
 

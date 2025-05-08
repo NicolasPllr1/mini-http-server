@@ -1,25 +1,25 @@
 use crate::http_request::HttpRequest;
 use crate::http_response::HttpResponse;
 use crate::thread_pool::ThreadPool;
+use std::error::Error;
+use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
 
-use std::error::Error;
-use std::net::{TcpListener, TcpStream};
-use std::sync::Arc;
-
 pub struct Server {
-    pub address: String,
+    pub address: SocketAddr,
     pub thread_pool: ThreadPool,
-    pub data_dir: Arc<String>, // NOTE: Arc vs plain String: pblm with Arc::Clone in run()
+    pub data_dir: Arc<Path>, // NOTE: Arc vs plain String: pblm with Arc::Clone in run()
 }
 
 impl Server {
     #[must_use]
-    pub fn new(address: &str, pool_size: usize, data_dir: &str) -> Self {
+    pub fn new(address: &SocketAddr, pool_size: usize, data_dir: &Path) -> Self {
         Server {
-            address: address.to_string(),
+            address: *address,
             thread_pool: ThreadPool::new(pool_size),
-            data_dir: data_dir.to_string().into(),
+            data_dir: Arc::from(data_dir),
         }
     }
 
@@ -29,7 +29,7 @@ impl Server {
     ///
     /// Returns an error when an incoming TCP connection can't be accepted
     pub fn run(&self) -> Result<(), Box<dyn Error>> {
-        let listener = TcpListener::bind(&self.address)?;
+        let listener = TcpListener::bind(self.address)?;
         let pool = &self.thread_pool;
 
         for stream in listener.incoming() {
@@ -52,7 +52,7 @@ impl Server {
         Ok(())
     }
 
-    fn handle_stream(mut stream: TcpStream, data_dir: &str) -> Result<(), Box<dyn Error>> {
+    fn handle_stream(mut stream: TcpStream, data_dir: &Path) -> Result<(), Box<dyn Error>> {
         println!("accepted new connection");
         stream.set_read_timeout(Some(Duration::new(30, 0)))?; // 30s
 
