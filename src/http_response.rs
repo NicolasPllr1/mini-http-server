@@ -251,7 +251,7 @@ mod tests {
     #[test]
     fn test_echo_endpoint_basic() {
         let request = create_test_request("/echo/hello");
-        let response = HttpResponse::build_from_request(&request, &Path::new("")).unwrap();
+        let response = HttpResponse::new_from_request(&request, &Path::new(""));
 
         assert!(matches!(response.status_code, StatusCode::Ok));
         assert_eq!(response.content_type, "text/plain");
@@ -262,7 +262,7 @@ mod tests {
     #[test]
     fn test_echo_endpoint_empty() {
         let request = create_test_request("/echo/");
-        let response = HttpResponse::build_from_request(&request, &Path::new("")).unwrap();
+        let response = HttpResponse::new_from_request(&request, &Path::new(""));
 
         assert!(matches!(response.status_code, StatusCode::Ok));
         assert_eq!(response.content_type, "text/plain");
@@ -273,7 +273,7 @@ mod tests {
     #[test]
     fn test_echo_endpoint_with_spaces() {
         let request = create_test_request("/echo/hello world");
-        let response = HttpResponse::build_from_request(&request, &Path::new("")).unwrap();
+        let response = HttpResponse::new_from_request(&request, &Path::new(""));
 
         assert!(matches!(response.status_code, StatusCode::Ok));
         assert_eq!(response.content_type, "text/plain");
@@ -284,7 +284,7 @@ mod tests {
     #[test]
     fn test_echo_endpoint_special_chars() {
         let request = create_test_request("/echo/hello!@#$%");
-        let response = HttpResponse::build_from_request(&request, &Path::new("")).unwrap();
+        let response = HttpResponse::new_from_request(&request, &Path::new(""));
 
         assert!(matches!(response.status_code, StatusCode::Ok));
         assert_eq!(response.content_type, "text/plain");
@@ -295,7 +295,7 @@ mod tests {
     #[test]
     fn test_response_write_to() {
         let request = create_test_request("/echo/test");
-        let response = HttpResponse::build_from_request(&request, &Path::new("")).unwrap();
+        let response = HttpResponse::new_from_request(&request, &Path::new(""));
         let mut output = Vec::new();
 
         response.write_to(&mut output).unwrap();
@@ -314,7 +314,7 @@ mod tests {
             .headers
             .insert("Accept-Encoding".to_string(), "gzip".to_string());
 
-        let response = HttpResponse::build_from_request(&request, &Path::new("")).unwrap();
+        let response = HttpResponse::new_from_request(&request, &Path::new(""));
 
         assert!(matches!(response.status_code, StatusCode::Ok));
         assert_eq!(response.content_type, "text/plain");
@@ -335,7 +335,7 @@ mod tests {
             "deflate, gzip, br".to_string(),
         );
 
-        let response = HttpResponse::build_from_request(&request, Path::new("")).unwrap();
+        let response = HttpResponse::new_from_request(&request, Path::new(""));
 
         assert!(matches!(response.status_code, StatusCode::Ok));
         // Should choose gzip as it's supported and within the list of proposed encoding schemes
@@ -349,7 +349,7 @@ mod tests {
             .headers
             .insert("Accept-Encoding".to_string(), "deflate, br".to_string());
 
-        let response = HttpResponse::build_from_request(&request, &Path::new("")).unwrap();
+        let response = HttpResponse::new_from_request(&request, &Path::new(""));
 
         assert!(matches!(response.status_code, StatusCode::Ok));
         // Should not have Content-Encoding header as no supported encoding was requested
@@ -364,7 +364,7 @@ mod tests {
             .headers
             .insert("Accept-Encoding".to_string(), "gzip".to_string());
 
-        let response = HttpResponse::build_from_request(&request, &Path::new("")).unwrap();
+        let response = HttpResponse::new_from_request(&request, &Path::new(""));
         let mut rcv_buff = Vec::new();
         response.write_to(&mut rcv_buff).unwrap();
 
