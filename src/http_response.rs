@@ -1,11 +1,10 @@
 use crate::encoding::ContentEncoding;
-use crate::endpoints::Endpoints;
+use crate::endpoints::{EndpointError, Endpoints};
 use crate::http_commons::HttpVersion;
 use crate::http_request::HttpRequest;
 use bytes::Bytes;
 
-use std::error::Error;
-use std::fmt::Display;
+use std::fmt::{self, Display};
 use std::io::Write;
 use std::path::Path;
 
@@ -38,6 +37,27 @@ impl std::fmt::Display for StatusCode {
             StatusCode::NotFound => write!(f, "404 Not Found"),
             StatusCode::Created => write!(f, "201 Created"),
         }
+    }
+}
+
+#[derive(Debug)]
+pub enum ResponseError {
+    Endpoint(EndpointError),
+}
+
+impl fmt::Display for ResponseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ResponseError::Endpoint(e) => write!(f, "error processing the endpoint: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for ResponseError {}
+
+impl From<EndpointError> for ResponseError {
+    fn from(e: EndpointError) -> ResponseError {
+        ResponseError::Endpoint(e)
     }
 }
 
@@ -122,9 +142,9 @@ impl HttpResponse {
     pub fn build_from_request(
         http_request: &HttpRequest,
         data_dir: &Path,
-    ) -> Result<HttpResponse, Box<dyn Error>> {
+    ) -> Result<HttpResponse, ResponseError> {
         let endpoint_requested = &http_request.request_target.parse::<Endpoints>()?;
-        endpoint_requested.handle_request(http_request, data_dir)
+        Ok(endpoint_requested.handle_request(http_request, data_dir)?)
     }
 
     /// Write HTTP response

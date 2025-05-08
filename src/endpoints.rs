@@ -4,7 +4,7 @@ use crate::http_request::HttpRequest;
 use crate::http_response::StatusCode;
 use crate::http_response::{Buildable, Builder, HttpResponse};
 
-use std::error::Error;
+use std::fmt;
 use std::fs;
 use std::path::Path;
 use std::thread;
@@ -22,8 +22,42 @@ pub enum Endpoints {
     UserAgent,
     Sleep,
     File,
-    NotAvailable,
 }
+
+#[derive(Debug)]
+pub enum EndpointError {
+    EndpointNotRecognized(String),
+    UserAgentNotFound,
+    PostBodyNotFound,
+    TargetFilename(String),
+    Io(std::io::Error),
+}
+
+impl From<std::io::Error> for EndpointError {
+    fn from(e: std::io::Error) -> EndpointError {
+        EndpointError::Io(e)
+    }
+}
+
+impl fmt::Display for EndpointError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            EndpointError::EndpointNotRecognized(e) => {
+                write!(f, "request-target not recognized: {e}")
+            }
+            EndpointError::UserAgentNotFound => {
+                write!(f, "user-agent header not found")
+            }
+            EndpointError::PostBodyNotFound => write!(f, "body not found"),
+            EndpointError::TargetFilename(t) => {
+                write!(f, "problem parsing the target filename. Expected : {t}")
+            }
+            EndpointError::Io(e) => write!(f, "I/O on the requested file : {e}"),
+        }
+    }
+}
+
+impl std::error::Error for EndpointError {}
 
 // TODO: explore/compare the trait approach for the endpoints implementations
 impl Endpoints {
@@ -34,7 +68,7 @@ impl Endpoints {
         &self,
         http_request: &HttpRequest,
         data_dir: &Path,
-    ) -> Result<HttpResponse, Box<dyn Error>> {
+    ) -> Result<HttpResponse, EndpointError> {
         let mut builder = HttpResponse::builder();
 
         builder.with_protocol_version(http_request.protocol_version);
@@ -60,7 +94,8 @@ impl Endpoints {
                 let user_agent_body = http_request
                     .headers
                     .get("User-Agent")
-                    .ok_or("User-Agent endpoint expects 'User-Agent' header")?;
+                    .ok_or(EndpointError::UserAgentNotFound)?;
+                // .ok_or("User-Agent endpoint expects 'User-Agent' header")?;
 
                 builder.with_content_length(user_agent_body.len());
                 builder.with_body(user_agent_body);
@@ -79,6 +114,7 @@ impl Endpoints {
                         builder.with_body(&file_content);
                     }
                     Err(_) => {
+                        // TODO: could be more precise here, depending on the EndpointError
                         builder.with_status_code(StatusCode::NotFound);
                     }
                 },
@@ -88,7 +124,9 @@ impl Endpoints {
                     let content = http_request
                         .body
                         .clone()
-                        .ok_or("Body should have been provided")?;
+                        .ok_or(EndpointError::PostBodyNotFound)?;
+                    // .ok_or("Body should have been provided")?;
+
                     match fs::write(file_path, content) {
                         Ok(()) => {
                             builder.with_status_code(StatusCode::Created);
@@ -101,16 +139,13 @@ impl Endpoints {
                     }
                 }
             },
-            Endpoints::NotAvailable => {
-                builder.with_status_code(StatusCode::NotFound);
-            }
         };
         Ok(builder.build())
     }
 }
 
 impl std::str::FromStr for Endpoints {
-    type Err = String;
+    type Err = EndpointError;
 
     fn from_str(request_target: &str) -> Result<Self, Self::Err> {
         match request_target {
@@ -119,25 +154,27 @@ impl std::str::FromStr for Endpoints {
             "/user-agent" => Ok(Self::UserAgent),
             "/sleep" => Ok(Self::Sleep),
             s if s.starts_with("/files/") => Ok(Self::File),
-            _ => Ok(Self::NotAvailable), // could Err here and map to NotAvailable higher-up ?
+            _ => Err(EndpointError::EndpointNotRecognized(request_target.into())),
         }
     }
 }
 
 // Private utils
 impl Endpoints {
-    fn get_target_filename(http_request: &HttpRequest) -> Result<&str, Box<dyn Error>> {
+    fn get_target_filename(http_request: &HttpRequest) -> Result<&str, EndpointError> {
         http_request
             .request_target
             .split('/')
             .last()
-            .ok_or("Expected : /files/{filename}".into())
+            .ok_or(EndpointError::TargetFilename(
+                http_request.request_target.clone(),
+            ))
     }
 
     fn get_file_content(
         http_request: &HttpRequest,
         data_dir: &Path,
-    ) -> Result<String, Box<dyn Error>> {
+    ) -> Result<String, EndpointError> {
         let filename = Self::get_target_filename(http_request)?;
         let file_path = data_dir.join(filename);
         dbg!(&file_path);
