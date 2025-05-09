@@ -14,7 +14,7 @@ pub struct TestServer {
 impl TestServer {
     pub fn new() -> Self {
         // Use a fixed port for simplicity, or choose a random available port
-        let port = 8080;
+        let port = 4221;
         let address = SocketAddr::from_str(&format!("127.0.0.1:{}", port)).unwrap();
 
         TestServer { address }

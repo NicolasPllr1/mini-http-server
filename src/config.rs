@@ -66,7 +66,7 @@ impl Builder {
 
     #[must_use]
     pub fn build(self) -> Config {
-        let default_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
+        let default_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 4221);
         let default_data_dir = PathBuf::new();
         Config {
             server_addr: self.server_addr.unwrap_or(default_socket),
