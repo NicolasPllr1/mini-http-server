@@ -55,7 +55,7 @@ impl fmt::Display for RequestError {
             RequestError::BodyContentLength(l) => {
                 write!(f, "error parsing the body length: {l}")
             }
-            RequestError::Io(_) => write!(f, "I/O while reading request"),
+            RequestError::Io(e) => write!(f, "I/O while reading request: {e}"),
         }
     }
 }

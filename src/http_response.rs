@@ -7,6 +7,7 @@ use bytes::Bytes;
 use std::fmt::{self, Display};
 use std::io::Write;
 use std::path::Path;
+use std::str::FromStr;
 
 //TODO:
 // 1. use combinator to reduce explicit matching
@@ -16,14 +17,14 @@ use std::path::Path;
 pub struct HttpResponse {
     pub protocol_version: HttpVersion,
     pub status_code: StatusCode,
-    pub content_type: String,
+    pub content_type: ContentType,
     pub content_length: usize,
     pub content_encoding: Option<ContentEncoding>,
     pub conn_close: bool,
     pub body: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum StatusCode {
     Ok,
     NotFound,
@@ -43,6 +44,60 @@ impl std::fmt::Display for StatusCode {
             StatusCode::InternalServerError => write!(f, "500 Internal Server Error"),
             StatusCode::BadRequest => write!(f, "400 Bad Request"),
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ContentType {
+    Html,
+    Css,
+    JavaScript,
+    Json,
+    Png,
+    Jpeg,
+    Gif,
+    Svg,
+    PlainText,
+    Pdf,
+    OctetStream, // default
+}
+
+impl FromStr for ContentType {
+    type Err = ();
+
+    fn from_str(ext: &str) -> Result<Self, Self::Err> {
+        Ok(match ext {
+            "html" | "htm" => ContentType::Html,
+            "css" => ContentType::Css,
+            "js" => ContentType::JavaScript,
+            "json" => ContentType::Json,
+            "png" => ContentType::Png,
+            "jpg" | "jpeg" => ContentType::Jpeg,
+            "gif" => ContentType::Gif,
+            "svg" => ContentType::Svg,
+            "txt" => ContentType::PlainText,
+            "pdf" => ContentType::Pdf,
+            _ => ContentType::OctetStream,
+        })
+    }
+}
+
+impl fmt::Display for ContentType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mime = match self {
+            ContentType::Html => "text/html",
+            ContentType::Css => "text/css",
+            ContentType::JavaScript => "application/javascript",
+            ContentType::Json => "application/json",
+            ContentType::Png => "image/png",
+            ContentType::Jpeg => "image/jpeg",
+            ContentType::Gif => "image/gif",
+            ContentType::Svg => "image/svg+xml",
+            ContentType::PlainText => "text/plain",
+            ContentType::Pdf => "application/pdf",
+            ContentType::OctetStream => "application/octet-stream",
+        };
+        write!(f, "{mime}")
     }
 }
 
@@ -84,7 +139,7 @@ impl Builder<HttpResponse> for HttpResponseBuilder {
             http_response: HttpResponse {
                 protocol_version: HttpVersion::Http11,
                 status_code: StatusCode::Ok,
-                content_type: String::from("text/plain"),
+                content_type: ContentType::PlainText,
                 content_length: 0,
                 content_encoding: None,
                 conn_close: false,
@@ -107,8 +162,8 @@ impl HttpResponseBuilder {
         self.http_response.status_code = status_code;
     }
 
-    pub fn with_content_type(&mut self, content_type: &str) {
-        self.http_response.content_type = content_type.to_string();
+    pub fn with_content_type(&mut self, content_type: ContentType) {
+        self.http_response.content_type = content_type;
     }
 
     pub fn with_content_length(&mut self, content_length: usize) {
