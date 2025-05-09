@@ -92,9 +92,9 @@ impl Endpoints {
 
         match self {
             Endpoints::Echo => {
-                let to_echo_back = http_request.request_target[6..].to_string(); // '/echo/{str}'
+                let to_echo_back = http_request.request_target[6..].as_bytes(); // '/echo/{str}'
                 builder.with_content_length(to_echo_back.len());
-                builder.with_body(&to_echo_back);
+                builder.with_body(to_echo_back);
             }
             Endpoints::UserAgent => {
                 let user_agent_body = http_request
@@ -104,20 +104,20 @@ impl Endpoints {
                 // .ok_or("User-Agent endpoint expects 'User-Agent' header")?;
 
                 builder.with_content_length(user_agent_body.len());
-                builder.with_body(user_agent_body);
+                builder.with_body(user_agent_body.as_bytes());
             }
             Endpoints::Sleep => {
                 thread::sleep(Duration::from_secs(10));
-                let sleep_msg = "Good sleep!".to_string();
+                let sleep_msg = "Good sleep!".as_bytes();
                 builder.with_content_length(sleep_msg.len());
-                builder.with_body(&sleep_msg);
+                builder.with_body(sleep_msg);
             }
             Endpoints::File => match http_request.http_method {
                 HttpMethod::Get => match Self::get_file_content(http_request, data_dir) {
                     Ok(file_content) => {
                         let content_type = Self::get_file_content_type(http_request, data_dir)?;
                         builder.with_content_type(content_type);
-                        builder.with_content_length(file_content.as_bytes().len());
+                        builder.with_content_length(file_content.len());
                         builder.with_body(&file_content);
                     }
                     Err(e) => {
@@ -184,13 +184,13 @@ impl Endpoints {
     fn get_file_content(
         http_request: &HttpRequest,
         data_dir: &Path,
-    ) -> Result<String, EndpointError> {
+    ) -> Result<Vec<u8>, EndpointError> {
         let filename = Self::get_target_filename(http_request);
 
         let file_path = data_dir.join(filename);
         dbg!(&file_path);
 
-        let file_content = fs::read_to_string(file_path)?;
+        let file_content = fs::read(file_path)?;
         Ok(file_content)
     }
     pub fn get_file_content_type(

@@ -21,7 +21,7 @@ pub struct HttpResponse {
     pub content_length: usize,
     pub content_encoding: Option<ContentEncoding>,
     pub conn_close: bool,
-    pub body: Option<String>,
+    pub body: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -47,7 +47,7 @@ impl std::fmt::Display for StatusCode {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ContentType {
     Html,
     Css,
@@ -178,8 +178,8 @@ impl HttpResponseBuilder {
         self.http_response.conn_close = conn_close;
     }
 
-    pub fn with_body(&mut self, body: &str) {
-        self.http_response.body = Some(body.to_string());
+    pub fn with_body(&mut self, body: &[u8]) {
+        self.http_response.body = Some(body.into());
     }
 }
 
@@ -220,8 +220,9 @@ impl HttpResponse {
 
         builder.with_status_code(StatusCode::BadRequest);
 
-        let body = error.to_string();
-        builder.with_body(&body);
+        let body_str = error.to_string();
+        let body = body_str.as_bytes();
+        builder.with_body(body);
         builder.with_content_length(body.len());
 
         builder.build()
@@ -248,7 +249,7 @@ impl HttpResponse {
                 write!(writer, "{encoding}")?;
                 encoding.encode_body(body)
             } else {
-                Bytes::from(body.as_bytes().to_vec())
+                Bytes::from(body.clone())
             };
 
             write!(
@@ -282,13 +283,16 @@ impl Display for HttpResponse {
         // Body if any
         if let Some(body) = &self.body {
             // TODO: why borrowing self.body is needed here ? same
-            // below for contentncoding
-            if let Some(encoding) = &self.content_encoding {
-                write!(f, "{encoding}")?;
-            }
             write!(f, "Content-Length: {}", body.len())?; // TODO: why putting self.body.len() does
                                                           // not work ? ('fn is private')
-            write!(f, "{body}")?;
+            if self.content_type == ContentType::PlainText {
+                match String::from_utf8(body.clone()) {
+                    Ok(body_str) => write!(f, "{body_str}")?,
+                    Err(e) => {
+                        writeln!(f, "Error converting plain-text body: {e}")?;
+                    }
+                }
+            }
         }
 
         // write!(f, "\r\n")?;

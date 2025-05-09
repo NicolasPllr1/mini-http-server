@@ -64,20 +64,24 @@ impl Server {
         while keep_alive {
             match HttpRequest::build_from_stream(&mut stream) {
                 Ok(http_request) => {
-                    println!("parsed http-request: {http_request:?}");
+                    println!("Parsed http-request: {http_request:?}\n");
 
                     keep_alive = http_request.keep_alive();
                     println!("keep-alive: {keep_alive}");
 
                     let http_response = HttpResponse::new_from_request(&http_request, data_dir);
-                    println!("built http-response: {http_response:?}");
+                    let request_line = http_request.request_target;
+                    let status_code = http_response.status_code;
+                    let content_type = http_response.content_type;
+                    println!(
+                        "Built http-response (status code: {status_code}) for {request_line}\nWith content type {content_type}\n"
+                    );
                     http_response.write_to(&mut stream)?;
                 }
                 Err(e) => {
                     eprintln!("error parsing the http-request: {e}");
                     keep_alive = false; // terminate connection
                     let http_response = HttpResponse::new_from_bad_request(&e);
-                    println!("built http-response: {http_response:?}");
                     http_response.write_to(&mut stream)?;
                 }
             }

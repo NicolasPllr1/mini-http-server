@@ -36,7 +36,7 @@ impl std::str::FromStr for ContentEncoding {
 
 impl ContentEncoding {
     #[must_use]
-    pub fn encode_body(self, body: &str) -> Bytes {
+    pub fn encode_body(self, body: &[u8]) -> Bytes {
         match self {
             ContentEncoding::GZip => gzip_encode_body(body).unwrap_or_default(),
         }
@@ -50,10 +50,10 @@ impl ContentEncoding {
             .find(|encoding| *encoding == ContentEncoding::GZip)
     }
 }
-fn gzip_encode_body(body: &str) -> Option<Bytes> {
+fn gzip_encode_body(body: &[u8]) -> Option<Bytes> {
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-    println!("Body to encode: {}", &body);
-    match encoder.write_all(body.as_bytes()) {
+    // println!("Body to encode: {}", &body);
+    match encoder.write_all(body) {
         Ok(()) => {
             println!("gzip compression initiated");
         }
