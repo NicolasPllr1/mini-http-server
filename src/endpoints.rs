@@ -202,6 +202,7 @@ impl Endpoints {
                 // here also
                 // compiles without the `ref`
                 Err(ref e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    dbg!("enter render dir listing");
                     Ok(Self::render_directory_listing(data_dir)?)
                 }
                 Err(e) => Err(EndpointError::Io(e)),
