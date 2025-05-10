@@ -32,7 +32,6 @@ pub enum EndpointError {
     WrongEndpointToAccessFiles(String),
     UserAgentNotFound,
     PostBodyNotFound,
-    TargetFileExtansion(String),
     ContentType(String),
     Io(std::io::Error),
 }
@@ -61,12 +60,6 @@ impl fmt::Display for EndpointError {
 
             EndpointError::ContentType(t) => {
                 write!(f, "problem parsing the content-type : {t}")
-            }
-            EndpointError::TargetFileExtansion(filename) => {
-                write!(
-                    f,
-                    "problem getting the target file extansion, filename is : {filename} "
-                )
             }
             EndpointError::Io(e) => write!(f, "I/O on the requested file : {e}"),
         }
@@ -255,17 +248,11 @@ impl Endpoints {
 
         let ext_str = file_path
             .extension()
-            .and_then(|ext| ext.to_str())
-            .ok_or(EndpointError::TargetFileExtansion(filename.into()))?;
+            .map_or("", |ext| ext.to_str().unwrap_or(""));
 
-        let content_type = ext_str
+        ext_str
             .parse::<ContentType>()
-            .map_err(|()| EndpointError::ContentType(ext_str.into()))?;
-
-        dbg!(ext_str);
-        dbg!(content_type);
-
-        Ok(content_type)
+            .map_err(|()| EndpointError::ContentType(filename.into()))
     }
 
     /// o3 generated: tiny, dependency‑free directory‑listing generator.
