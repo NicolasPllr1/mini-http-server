@@ -23,11 +23,13 @@ pub enum Endpoints {
     UserAgent,
     Sleep,
     File,
+    UrlPath,
 }
 
 #[derive(Debug)]
 pub enum EndpointError {
     EndpointNotRecognized(String),
+    WrongEndpointToAccessFiles(String),
     UserAgentNotFound,
     PostBodyNotFound,
     TargetFileExtansion(String),
@@ -47,6 +49,11 @@ impl fmt::Display for EndpointError {
             EndpointError::EndpointNotRecognized(e) => {
                 write!(f, "request-target not recognized: {e}")
             }
+
+            EndpointError::WrongEndpointToAccessFiles(s) => {
+                write!(f, "wrong endpoint to access a file/url: {s}")
+            }
+
             EndpointError::UserAgentNotFound => {
                 write!(f, "user-agent header not found")
             }
@@ -113,10 +120,10 @@ impl Endpoints {
                 builder.with_content_length(sleep_msg.len());
                 builder.with_body(sleep_msg);
             }
-            Endpoints::File => match http_request.http_method {
-                HttpMethod::Get => match Self::get_file_content(http_request, data_dir) {
+            Endpoints::UrlPath | Endpoints::File => match http_request.http_method {
+                HttpMethod::Get => match self.get_file_content(http_request, data_dir) {
                     Ok(file_content) => {
-                        let content_type = Self::get_file_content_type(http_request, data_dir)?;
+                        let content_type = self.get_file_content_type(http_request, data_dir)?;
                         builder.with_content_type(content_type);
                         builder.with_content_length(file_content.len());
                         builder.with_body(&file_content);
@@ -128,7 +135,8 @@ impl Endpoints {
                     }
                 },
                 HttpMethod::Post => {
-                    let filename = Self::get_target_filename(http_request);
+                    let filename = self.get_target_filename(http_request)?;
+                    dbg!("HELLO");
                     let file_path = data_dir.join(filename);
                     let content = http_request
                         .body
@@ -162,7 +170,7 @@ impl std::str::FromStr for Endpoints {
             "/user-agent" => Ok(Self::UserAgent),
             "/sleep" => Ok(Self::Sleep),
             s if s.starts_with("/files/") => Ok(Self::File),
-            s if s.starts_with('/') => Ok(Self::File),
+            s if s.starts_with('/') => Ok(Self::UrlPath),
             _ => {
                 eprintln!("Error parsing the endpoint: {request_target}");
                 Err(EndpointError::EndpointNotRecognized(request_target.into()))
@@ -175,26 +183,40 @@ impl std::str::FromStr for Endpoints {
 impl Endpoints {
     const DEFAULT_TARGET: &str = "index.html";
 
-    fn get_target_filename(http_request: &HttpRequest) -> &str {
-        let request_target = match http_request.http_method {
-            HttpMethod::Get => http_request.request_target.trim_start_matches('/'),
-            HttpMethod::Post => http_request.request_target.trim_start_matches("/files/"), // POST: /files/{target}
+    fn get_target_filename<'a>(
+        &self,
+        http_request: &'a HttpRequest,
+    ) -> Result<&'a str, EndpointError> {
+        let request_target = match self {
+            Endpoints::UrlPath => http_request.request_target.trim_start_matches('/'),
+            Endpoints::File => http_request.request_target.trim_start_matches("/files/"), // POST: /files/{target}
+            _ => {
+                return Err(EndpointError::WrongEndpointToAccessFiles(
+                    http_request.request_target.to_string(),
+                ))
+            }
         };
 
         if request_target.is_empty() {
-            return Self::DEFAULT_TARGET;
+            return Ok(Self::DEFAULT_TARGET);
         }
 
-        request_target
+        Ok(request_target)
     }
 
     fn get_file_content(
+        &self,
         http_request: &HttpRequest,
         data_dir: &Path,
     ) -> Result<Vec<u8>, EndpointError> {
-        let request_target = match http_request.http_method {
-            HttpMethod::Get => http_request.request_target.trim_start_matches('/'),
-            HttpMethod::Post => http_request.request_target.trim_start_matches("/files/"), // POST: /files/{target}
+        let request_target = match self {
+            Endpoints::UrlPath => http_request.request_target.trim_start_matches('/'),
+            Endpoints::File => http_request.request_target.trim_start_matches("/files/"), // POST: /files/{target}
+            _ => {
+                return Err(EndpointError::WrongEndpointToAccessFiles(
+                    http_request.request_target.to_string(),
+                ))
+            }
         };
 
         // Empty target: return `DEFAULT_TARGET` content if possible, else a directory listing
@@ -224,10 +246,11 @@ impl Endpoints {
     }
 
     pub fn get_file_content_type(
+        &self,
         http_request: &HttpRequest,
         data_dir: &Path,
     ) -> Result<ContentType, EndpointError> {
-        let filename = Self::get_target_filename(http_request);
+        let filename = self.get_target_filename(http_request)?;
         let file_path = data_dir.join(filename);
         dbg!(file_path.clone());
 
