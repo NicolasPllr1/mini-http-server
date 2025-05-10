@@ -252,6 +252,7 @@ impl Endpoints {
             dir.display()
         )?;
 
+        dbg!("list dir: trying to read {dir}");
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
             let name = entry.file_name();
