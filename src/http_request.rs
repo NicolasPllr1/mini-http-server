@@ -173,7 +173,7 @@ impl HttpRequest {
         builder.with_headers(&headers);
 
         // Read the *body* if any
-        if let Some(n_bytes_str) = headers.get("Content-Length") {
+        if let Some(n_bytes_str) = headers.get("content-length") {
             let n_bytes = n_bytes_str
                 .parse::<usize>()
                 .map_err(RequestError::BodyContentLength)?;
