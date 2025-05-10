@@ -176,13 +176,16 @@ impl Endpoints {
     const DEFAULT_TARGET: &str = "index.html";
 
     fn get_target_filename(http_request: &HttpRequest) -> &str {
-        let path = http_request.request_target.trim_start_matches('/');
+        let request_target = match http_request.http_method {
+            HttpMethod::Get => http_request.request_target.trim_start_matches('/'),
+            HttpMethod::Post => http_request.request_target.trim_start_matches("/files/"), // POST: /files/{target}
+        };
 
-        if path.is_empty() {
+        if request_target.is_empty() {
             return Self::DEFAULT_TARGET;
         }
 
-        path
+        request_target
     }
 
     fn get_file_content(
