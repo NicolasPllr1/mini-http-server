@@ -243,7 +243,8 @@ impl Endpoints {
 
         let ext_str = file_path
             .extension()
-            .map_or("", |ext| ext.to_str().unwrap_or(""));
+            .and_then(|ext| ext.to_str())
+            .unwrap_or("");
 
         ext_str
             .parse::<ContentType>()
