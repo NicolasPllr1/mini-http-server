@@ -122,7 +122,7 @@ impl Endpoints {
                     }
                     Err(e) => {
                         // TODO: could be more precise here, depending on the EndpointError
-                        ewriteln!("error getting file content: {e})");
+                        eprintln!("error getting file content: {e})");
                         builder.with_status_code(StatusCode::NotFound);
                     }
                 },
