@@ -154,16 +154,20 @@ impl HttpRequest {
 
         // Read eventual *headers*
         let mut headers: HashMap<String, String> = HashMap::new();
+        let mut header_line = String::new();
         loop {
-            let mut content = String::new(); // TODO: allocate once before looping?
-            reader.read_line(&mut content)?;
-            if content == "\r\n" {
+            reader.read_line(&mut header_line)?;
+            if header_line == "\r\n" {
                 break;
             }
-            let (header_name, header_value) = content
+            let (header_name, header_value) = header_line
                 .split_once(':')
-                .ok_or(RequestError::Header(content.to_string()))?;
-            headers.insert(header_name.to_string(), header_value.trim().to_string());
+                .ok_or(RequestError::Header(header_line.to_string()))?;
+            headers.insert(
+                header_name.to_lowercase().to_string(), // header names are case-insensitives
+                header_value.trim().to_string(),
+            );
+            header_line.clear();
         }
 
         builder.with_headers(&headers);
