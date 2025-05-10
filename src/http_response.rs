@@ -206,12 +206,12 @@ impl HttpResponse {
                 response
             } else {
                 let mut builder = HttpResponse::builder();
-                builder.with_status_code(StatusCode::NotImplemented);
+                builder.with_status_code(StatusCode::InternalServerError);
                 builder.build()
             }
         } else {
             let mut builder = HttpResponse::builder();
-            builder.with_status_code(StatusCode::InternalServerError);
+            builder.with_status_code(StatusCode::NotImplemented);
             builder.build()
         }
     }
