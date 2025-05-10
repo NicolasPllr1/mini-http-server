@@ -180,7 +180,7 @@ impl Builder {
         let mut in_server_section: bool = false;
 
         for line in content.lines() {
-            if line.starts_with('[') && line.ends_with(']') & line.contains("server") {
+            if line.starts_with('[') & line.ends_with(']') & line.contains("server") {
                 in_server_section = true;
             }
 
