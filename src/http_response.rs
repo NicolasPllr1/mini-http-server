@@ -247,7 +247,7 @@ impl HttpResponse {
         // Body if any
         if let Some(body) = &self.body {
             let encoded_body_bytes = if let Some(encoding) = &self.content_encoding {
-                write!(writer, "content-encoding: {encoding}")?;
+                write!(writer, "content-encoding: {encoding}\r\n")?;
                 encoding.encode_body(body)?
             } else {
                 body.clone()
