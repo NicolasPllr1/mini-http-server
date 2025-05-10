@@ -91,7 +91,8 @@ impl Endpoints {
 
         match self {
             Endpoints::Echo => {
-                let to_echo_back = http_request.request_target[6..].as_bytes(); // '/echo/{str}'
+                const ECHO_PREFIX_LEN: usize = 6; // '/echo/'
+                let to_echo_back = http_request.request_target[ECHO_PREFIX_LEN..].as_bytes(); // '/echo/{str}'
                 builder.with_content_length(to_echo_back.len());
                 builder.with_body(to_echo_back);
             }
