@@ -7,6 +7,7 @@ use crate::http_response::{Buildable, Builder, HttpResponse};
 
 use std::fmt;
 use std::fs;
+use std::io::Write;
 use std::path::Path;
 use std::thread;
 use std::time::Duration; // for the 'Sleep' endpoint (used to test multi-threading)
@@ -172,12 +173,15 @@ impl std::str::FromStr for Endpoints {
 
 // Private utils
 impl Endpoints {
+    const DEFAULT_TARGET: &str = "index.html";
+
     fn get_target_filename(http_request: &HttpRequest) -> &str {
-        let mut path = http_request.request_target.trim_start_matches('/');
+        let path = http_request.request_target.trim_start_matches('/');
+
         if path.is_empty() {
-            // '/' --> index.html
-            path = "index.html";
+            return Self::DEFAULT_TARGET;
         }
+
         path
     }
 
@@ -185,14 +189,33 @@ impl Endpoints {
         http_request: &HttpRequest,
         data_dir: &Path,
     ) -> Result<Vec<u8>, EndpointError> {
-        let filename = Self::get_target_filename(http_request);
+        let request_target = http_request.request_target.trim_start_matches('/');
 
-        let file_path = data_dir.join(filename);
-        dbg!(&file_path);
+        // Empty target: return `DEFAULT_TARGET` content if possible, else a directory listing
+        if request_target.is_empty() {
+            let file_path = data_dir.join(Self::DEFAULT_TARGET);
+            dbg!(&file_path);
 
-        let file_content = fs::read(file_path)?;
-        Ok(file_content)
+            match fs::read(file_path) {
+                Ok(bytes) => Ok(bytes),
+                // `ref e` to borrow the error, making the read-only need explicit. Why not, but
+                // here also
+                // compiles without the `ref`
+                Err(ref e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    Ok(Self::render_directory_listing(data_dir)?)
+                }
+                Err(e) => Err(EndpointError::Io(e)),
+            }
+        }
+        // Regular code path: try to read target
+        else {
+            let file_path = data_dir.join(request_target);
+            dbg!(&file_path);
+            let file_content = fs::read(file_path)?;
+            Ok(file_content)
+        }
     }
+
     pub fn get_file_content_type(
         http_request: &HttpRequest,
         data_dir: &Path,
@@ -200,6 +223,7 @@ impl Endpoints {
         let filename = Self::get_target_filename(http_request);
         let file_path = data_dir.join(filename);
         dbg!(file_path.clone());
+
         let ext_str = file_path
             .extension()
             .and_then(|ext| ext.to_str())
@@ -213,5 +237,38 @@ impl Endpoints {
         dbg!(content_type);
 
         Ok(content_type)
+    }
+
+    /// o3 generated: tiny, dependency‑free directory‑listing generator.
+    fn render_directory_listing(dir: &Path) -> std::io::Result<Vec<u8>> {
+        let mut html = Vec::new();
+
+        writeln!(
+            html,
+            "<!doctype html><meta charset=\"utf-8\">\
+         <title>Index of {}</title><h1>Index of {}</h1><ul>",
+            dir.display(),
+            dir.display()
+        )?;
+
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name.starts_with('.') {
+                continue;
+            } // hide dotfiles
+
+            let display = if entry.file_type()?.is_dir() {
+                format!("{name}/")
+            } else {
+                name.to_string()
+            };
+
+            writeln!(html, r#"<li><a href="{display}">{display}</a></li>"#)?;
+        }
+
+        writeln!(html, "</ul>")?;
+        Ok(html)
     }
 }
