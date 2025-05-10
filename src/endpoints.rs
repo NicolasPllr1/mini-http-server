@@ -122,7 +122,7 @@ impl Endpoints {
                     }
                     Err(e) => {
                         // TODO: could be more precise here, depending on the EndpointError
-                        eprintln!("error getting file content: {e})");
+                        ewriteln!("error getting file content: {e})");
                         builder.with_status_code(StatusCode::NotFound);
                     }
                 },
@@ -157,11 +157,11 @@ impl std::str::FromStr for Endpoints {
 
     fn from_str(request_target: &str) -> Result<Self, Self::Err> {
         match request_target {
-            s if s.starts_with('/') => Ok(Self::File),
-            s if s.starts_with("/files/") => Ok(Self::File),
             s if s.starts_with("/echo/") => Ok(Self::Echo),
             "/user-agent" => Ok(Self::UserAgent),
             "/sleep" => Ok(Self::Sleep),
+            s if s.starts_with("/files/") => Ok(Self::File),
+            s if s.starts_with('/') => Ok(Self::File),
             _ => {
                 eprintln!("Error parsing the endpoint: {request_target}");
                 Err(EndpointError::EndpointNotRecognized(request_target.into()))
