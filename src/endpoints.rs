@@ -12,9 +12,7 @@ use std::path::Path;
 use std::thread;
 use std::time::Duration; // for the 'Sleep' endpoint (used to test multi-threading)
 
-//TODO:
-// 1. use combinator to reduce explicit matching
-// 2. custom error with ?
+// TODO:
 // Potential refacto with a Router (dynamic vs static dispatch)
 
 #[derive(Debug)]
@@ -214,7 +212,6 @@ impl Endpoints {
         // Empty target: return `DEFAULT_TARGET` content if possible, else a directory listing
         if request_target.is_empty() {
             let file_path = data_dir.join(Self::DEFAULT_TARGET);
-            dbg!(&file_path);
 
             match fs::read(file_path) {
                 Ok(bytes) => Ok(bytes),
@@ -222,7 +219,6 @@ impl Endpoints {
                 // here also
                 // compiles without the `ref`
                 Err(ref e) if e.kind() == std::io::ErrorKind::NotFound => {
-                    dbg!("enter render dir listing");
                     Ok(Self::render_directory_listing(data_dir)?)
                 }
                 Err(e) => Err(EndpointError::Io(e)),
@@ -231,7 +227,6 @@ impl Endpoints {
         // Regular code path: try to read target
         else {
             let file_path = data_dir.join(request_target);
-            dbg!(&file_path);
             let file_content = fs::read(file_path)?;
             Ok(file_content)
         }
@@ -244,7 +239,6 @@ impl Endpoints {
     ) -> Result<ContentType, EndpointError> {
         let filename = self.get_target_filename(http_request)?;
         let file_path = data_dir.join(filename);
-        dbg!(file_path.clone());
 
         let ext_str = file_path
             .extension()
@@ -267,7 +261,6 @@ impl Endpoints {
             dir.display()
         )?;
 
-        dbg!(dir);
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
             let name = entry.file_name();

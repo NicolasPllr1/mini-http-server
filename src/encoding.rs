@@ -52,14 +52,13 @@ impl ContentEncoding {
 }
 fn gzip_encode_body(body: &[u8]) -> Option<Bytes> {
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-    // println!("Body to encode: {}", &body);
     match encoder.write_all(body) {
         Ok(()) => {
             println!("gzip compression initiated");
         }
         Err(e) => {
-            println!("Error while initiating gzip-compressing the body: {e}");
-            println!("Returning None");
+            eprintln!("Error while initiating gzip-compressing the body: {e}");
+            eprintln!("Returning None");
             return None;
         }
     };
