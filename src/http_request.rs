@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::http_commons::{HttpVersion, HttpVersionParseError};
 
 use std::collections::HashMap;

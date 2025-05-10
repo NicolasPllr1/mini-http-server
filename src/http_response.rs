@@ -151,7 +151,6 @@ impl Builder<HttpResponse> for HttpResponseBuilder {
     }
 }
 
-#[allow(dead_code)]
 impl HttpResponseBuilder {
     pub fn with_protocol_version(&mut self, protocol_version: HttpVersion) {
         self.http_response.protocol_version = protocol_version;
