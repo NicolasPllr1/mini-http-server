@@ -86,7 +86,7 @@ impl Endpoints {
 
         let content_encoding = http_request
             .headers
-            .get("Accept-Encoding")
+            .get("accept-encoding")
             .and_then(|hdr_val| ContentEncoding::from_header(hdr_val));
 
         builder.with_content_encoding(content_encoding);
@@ -103,7 +103,7 @@ impl Endpoints {
             Endpoints::UserAgent => {
                 let user_agent_body = http_request
                     .headers
-                    .get("User-Agent")
+                    .get("user-agent")
                     .ok_or(EndpointError::UserAgentNotFound)?;
                 // .ok_or("User-Agent endpoint expects 'User-Agent' header")?;
 

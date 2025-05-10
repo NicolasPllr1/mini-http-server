@@ -386,7 +386,7 @@ mod tests {
         let mut request = create_test_request("/echo/compressed_content");
         request
             .headers
-            .insert("Accept-Encoding".to_string(), "gzip".to_string());
+            .insert("accept-encoding".to_string(), "gzip".to_string());
 
         let response = HttpResponse::new_from_request(&request, &Path::new(""));
 
@@ -405,7 +405,7 @@ mod tests {
     fn test_echo_endpoint_with_multiple_encodings() {
         let mut request = create_test_request("/echo/hello");
         request.headers.insert(
-            "Accept-Encoding".to_string(),
+            "accept-encoding".to_string(),
             "deflate, gzip, br".to_string(),
         );
 
@@ -421,7 +421,7 @@ mod tests {
         let mut request = create_test_request("/echo/hello");
         request
             .headers
-            .insert("Accept-Encoding".to_string(), "deflate, br".to_string());
+            .insert("accept-encoding".to_string(), "deflate, br".to_string());
 
         let response = HttpResponse::new_from_request(&request, &Path::new(""));
 
@@ -436,7 +436,7 @@ mod tests {
         let mut request = create_test_request("/echo/test_compressed");
         request
             .headers
-            .insert("Accept-Encoding".to_string(), "gzip".to_string());
+            .insert("accept-encoding".to_string(), "gzip".to_string());
 
         let response = HttpResponse::new_from_request(&request, &Path::new(""));
         let mut rcv_buff = Vec::new();

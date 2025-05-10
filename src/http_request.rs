@@ -189,7 +189,7 @@ impl HttpRequest {
         Ok(builder.build())
     }
     pub fn keep_alive(&self) -> bool {
-        match self.headers.get("Connection") {
+        match self.headers.get("connection") {
             Some(s) if s == "close" => false,
             Some(_) | None => true,
         }
