@@ -1,4 +1,3 @@
-use bytes::Bytes;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use std::io::prelude::*;
@@ -16,7 +15,7 @@ pub enum ContentEncoding {
 impl std::fmt::Display for ContentEncoding {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            ContentEncoding::GZip => write!(f, "Content-Encoding: gzip\r\n"),
+            ContentEncoding::GZip => write!(f, "gzip"),
         }
     }
 }
@@ -35,10 +34,9 @@ impl std::str::FromStr for ContentEncoding {
 }
 
 impl ContentEncoding {
-    #[must_use]
-    pub fn encode_body(self, body: &[u8]) -> Bytes {
+    pub fn encode_body(self, body: &[u8]) -> Result<Vec<u8>, std::io::Error> {
         match self {
-            ContentEncoding::GZip => gzip_encode_body(body).unwrap_or_default(),
+            ContentEncoding::GZip => gzip_encode_body(body),
         }
     }
     pub fn from_header(hdr_val: &str) -> Option<ContentEncoding> {
@@ -50,28 +48,10 @@ impl ContentEncoding {
             .find(|encoding| *encoding == ContentEncoding::GZip)
     }
 }
-fn gzip_encode_body(body: &[u8]) -> Option<Bytes> {
+fn gzip_encode_body(body: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-    match encoder.write_all(body) {
-        Ok(()) => {
-            println!("gzip compression initiated");
-        }
-        Err(e) => {
-            eprintln!("Error while initiating gzip-compressing the body: {e}");
-            eprintln!("Returning None");
-            return None;
-        }
-    };
-    match encoder.finish() {
-        Ok(encoded_bytes) => {
-            println!("Gzip compression successful");
-            Some(Bytes::from(encoded_bytes))
-        }
-        Err(e) => {
-            println!("Error during the gzip-compression : {e}");
-            None
-        }
-    }
+    encoder.write_all(body)?;
+    encoder.finish()
 }
 
 #[cfg(test)]

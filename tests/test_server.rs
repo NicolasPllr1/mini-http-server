@@ -66,7 +66,7 @@ mod test {
         println!("Response:\n{}", response);
 
         assert!(response.contains("HTTP/1.1 200 OK"));
-        assert!(response.contains("Content-Type: text/plain"));
+        assert!(response.contains("content-type: text/plain"));
         assert!(response.contains("hello"));
     }
 }

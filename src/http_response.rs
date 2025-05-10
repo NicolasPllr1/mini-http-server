@@ -2,7 +2,6 @@ use crate::encoding::ContentEncoding;
 use crate::endpoints::{EndpointError, Endpoints};
 use crate::http_commons::HttpVersion;
 use crate::http_request::{HttpRequest, RequestError};
-use bytes::Bytes;
 
 use std::fmt::{self, Display};
 use std::io::Write;
@@ -238,29 +237,28 @@ impl HttpResponse {
         write!(writer, "{} {}\r\n", self.protocol_version, self.status_code)?;
 
         // Content-type
-        write!(writer, "Content-Type: {}\r\n", self.content_type)?;
+        write!(writer, "content-type: {}\r\n", self.content_type)?;
 
         // Close connection
         if self.conn_close {
-            write!(writer, "Connection: close\r\n")?;
+            write!(writer, "connection: close\r\n")?;
         }
 
         // Body if any
         if let Some(body) = &self.body {
             let encoded_body_bytes = if let Some(encoding) = &self.content_encoding {
-                write!(writer, "{encoding}")?;
-                encoding.encode_body(body)
+                write!(writer, "content-encoding: {encoding}")?;
+                encoding.encode_body(body)?
             } else {
-                Bytes::from(body.clone())
+                body.clone()
             };
 
             write!(
                 writer,
-                "Content-Length: {}\r\n\r\n",
+                "content-length: {}\r\n\r\n",
                 encoded_body_bytes.len()
             )?;
             writer.write_all(&encoded_body_bytes)?;
-            // write!(writer, "\r\n")?;
         } else {
             // no body, the end
             write!(writer, "\r\n")?;
@@ -328,9 +326,9 @@ mod tests {
         let response = HttpResponse::new_from_request(&request, &Path::new(""));
 
         assert!(matches!(response.status_code, StatusCode::Ok));
-        assert_eq!(response.content_type, "text/plain");
+        assert_eq!(response.content_type, ContentType::PlainText);
         assert_eq!(response.content_length, 5);
-        assert_eq!(response.body.unwrap(), "hello");
+        assert_eq!(response.body.unwrap(), "hello".as_bytes());
     }
 
     #[test]
@@ -339,9 +337,9 @@ mod tests {
         let response = HttpResponse::new_from_request(&request, &Path::new(""));
 
         assert!(matches!(response.status_code, StatusCode::Ok));
-        assert_eq!(response.content_type, "text/plain");
+        assert_eq!(response.content_type, ContentType::PlainText);
         assert_eq!(response.content_length, 0);
-        assert_eq!(response.body.unwrap(), "");
+        assert_eq!(response.body.unwrap(), "".as_bytes());
     }
 
     #[test]
@@ -350,9 +348,9 @@ mod tests {
         let response = HttpResponse::new_from_request(&request, &Path::new(""));
 
         assert!(matches!(response.status_code, StatusCode::Ok));
-        assert_eq!(response.content_type, "text/plain");
+        assert_eq!(response.content_type, ContentType::PlainText);
         assert_eq!(response.content_length, 11);
-        assert_eq!(response.body.unwrap(), "hello world");
+        assert_eq!(response.body.unwrap(), "hello world".as_bytes());
     }
 
     #[test]
@@ -361,9 +359,9 @@ mod tests {
         let response = HttpResponse::new_from_request(&request, &Path::new(""));
 
         assert!(matches!(response.status_code, StatusCode::Ok));
-        assert_eq!(response.content_type, "text/plain");
+        assert_eq!(response.content_type, ContentType::PlainText);
         assert_eq!(response.content_length, 10);
-        assert_eq!(response.body.unwrap(), "hello!@#$%");
+        assert_eq!(response.body.unwrap(), "hello!@#$%".as_bytes());
     }
 
     #[test]
@@ -376,8 +374,8 @@ mod tests {
 
         let response_str = String::from_utf8(output).unwrap();
         assert!(response_str.contains("200 OK"));
-        assert!(response_str.contains("Content-Type: text/plain"));
-        assert!(response_str.contains("Content-Length: 4"));
+        assert!(response_str.contains("content-type: text/plain"));
+        assert!(response_str.contains("content-length: 4"));
         assert!(response_str.contains("test"));
     }
 
@@ -391,14 +389,17 @@ mod tests {
         let response = HttpResponse::new_from_request(&request, &Path::new(""));
 
         assert!(matches!(response.status_code, StatusCode::Ok));
-        assert_eq!(response.content_type, "text/plain");
+        assert_eq!(response.content_type, ContentType::PlainText);
         assert_eq!(response.content_encoding, Some(ContentEncoding::GZip));
 
         assert!(response.content_length > 0);
 
         // NOTE: body gets compressed when response is written as bytes
         // --> the body should not be compressed yet
-        assert_eq!(response.body.as_ref().unwrap(), "compressed_content");
+        assert_eq!(
+            response.body.as_ref().unwrap(),
+            "compressed_content".as_bytes()
+        );
     }
 
     #[test]
@@ -428,7 +429,7 @@ mod tests {
         assert!(matches!(response.status_code, StatusCode::Ok));
         // Should not have Content-Encoding header as no supported encoding was requested
         assert!(response.content_encoding.is_none());
-        assert_eq!(response.body.unwrap(), "hello");
+        assert_eq!(response.body.unwrap(), "hello".as_bytes());
     }
 
     #[test]
@@ -445,7 +446,7 @@ mod tests {
         // Only check the headers portion which is not compressed
         let headers_str = String::from_utf8_lossy(&rcv_buff);
         assert!(headers_str.contains("200 OK"));
-        assert!(headers_str.contains("Content-Type: text/plain"));
-        assert!(headers_str.contains("Content-Encoding: gzip"));
+        assert!(headers_str.contains("content-type: text/plain"));
+        assert!(headers_str.contains("content-encoding: gzip"));
     }
 }
