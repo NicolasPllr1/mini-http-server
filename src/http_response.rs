@@ -202,12 +202,14 @@ impl HttpResponse {
     /// Endpoints can return errors.
     pub fn new_from_request(http_request: &HttpRequest, data_dir: &Path) -> HttpResponse {
         if let Ok(endpoint_requested) = &http_request.request_target.parse::<Endpoints>() {
-            if let Ok(response) = endpoint_requested.handle_request(http_request, data_dir) {
-                response
-            } else {
-                let mut builder = HttpResponse::builder();
-                builder.with_status_code(StatusCode::InternalServerError);
-                builder.build()
+            match endpoint_requested.handle_request(http_request, data_dir) {
+                Ok(response) => response,
+                Err(e) => {
+                    eprintln!("Internal error: {e}");
+                    let mut builder = HttpResponse::builder();
+                    builder.with_status_code(StatusCode::InternalServerError);
+                    builder.build()
+                }
             }
         } else {
             let mut builder = HttpResponse::builder();
