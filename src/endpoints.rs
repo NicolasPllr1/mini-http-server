@@ -8,7 +8,9 @@ use crate::http_response::{Buildable, Builder, HttpResponse};
 use std::fmt;
 use std::fs;
 use std::io::Write;
+use std::path::Component;
 use std::path::Path;
+use std::path::PathBuf;
 use std::thread;
 use std::time::Duration; // for the 'Sleep' endpoint (used to test multi-threading)
 
@@ -32,6 +34,7 @@ pub enum EndpointError {
     PostBodyNotFound,
     ContentType(String),
     Io(std::io::Error),
+    BadRequest(String),
 }
 
 impl From<std::io::Error> for EndpointError {
@@ -60,6 +63,7 @@ impl fmt::Display for EndpointError {
                 write!(f, "problem parsing the content-type : {t}")
             }
             EndpointError::Io(e) => write!(f, "I/O on the requested file : {e}"),
+            EndpointError::BadRequest(e) => write!(f, "bad request : {e}"),
         }
     }
 }
@@ -179,8 +183,8 @@ impl Endpoints {
         http_request: &'a HttpRequest,
     ) -> Result<&'a str, EndpointError> {
         let request_target = match self {
-            Endpoints::UrlPath => http_request.request_target.trim_start_matches('/'),
-            Endpoints::File => http_request.request_target.trim_start_matches("/files/"), // POST: /files/{target}
+            Endpoints::UrlPath => Self::clean_target(http_request, "/")?,
+            Endpoints::File => Self::clean_target(http_request, "/files/")?,
             _ => {
                 return Err(EndpointError::WrongEndpointToAccessFiles(
                     http_request.request_target.to_string(),
@@ -201,8 +205,8 @@ impl Endpoints {
         data_dir: &Path,
     ) -> Result<Vec<u8>, EndpointError> {
         let request_target = match self {
-            Endpoints::UrlPath => http_request.request_target.trim_start_matches('/'),
-            Endpoints::File => http_request.request_target.trim_start_matches("/files/"), // POST: /files/{target}
+            Endpoints::UrlPath => Self::clean_target(http_request, "/")?,
+            Endpoints::File => Self::clean_target(http_request, "/files/")?,
             _ => {
                 return Err(EndpointError::WrongEndpointToAccessFiles(
                     http_request.request_target.to_string(),
@@ -227,8 +231,20 @@ impl Endpoints {
         }
         // Regular code path: try to read target
         else {
-            let file_path = data_dir.join(request_target);
-            let file_content = fs::read(file_path)?;
+            let requested_file_path = data_dir.join(request_target);
+
+            // ----------------------------------------------------------------------------------
+            // Canonicalise and ensure we still live *inside* data_dir
+            let real_file_path = requested_file_path
+                .canonicalize()
+                .map_err(EndpointError::Io)?;
+
+            if !real_file_path.starts_with(data_dir) {
+                return Err(EndpointError::BadRequest(request_target.into())); // attempted escape
+            }
+            // ----------------------------------------------------------------------------------
+
+            let file_content = fs::read(real_file_path)?;
             Ok(file_content)
         }
     }
@@ -282,5 +298,45 @@ impl Endpoints {
 
         writeln!(html, "</ul>")?;
         Ok(html)
+    }
+
+    /// o3 generated: return a *sanitised* target
+    fn clean_target<'a>(
+        http_request: &'a HttpRequest,
+        prefix: &str,
+    ) -> Result<&'a str, EndpointError> {
+        // Strip the URL prefix (`/` or `/files/`)
+        let raw = http_request
+            .request_target
+            .strip_prefix(prefix)
+            .unwrap_or_default();
+
+        // 1. Reject obviously dangerous bytes early
+        if raw.len() > 1024                 // Simple DoS limiter
+            || raw.bytes().any(|b| b == 0)      // Embedded NUL
+            || raw.contains('\\')
+        // Windows back‑slashes
+        {
+            return Err(EndpointError::BadRequest(raw.into()));
+        }
+
+        // // 2. Percent‑decode once, using LOSSY to avoid panicking on invalid UTF‑8
+        // let decoded = percent_decode_str(raw).decode_utf8_lossy();
+        let decoded = raw;
+
+        // 3. Check for path‑traversal after decoding
+        if decoded.contains("..") || decoded.starts_with('.') {
+            return Err(EndpointError::BadRequest(decoded.into()));
+        }
+
+        // 4. Reject any component that is empty or “.”
+        for comp in PathBuf::from(decoded).components() {
+            match comp {
+                Component::Normal(c) if !c.is_empty() => {}
+                _ => return Err(EndpointError::BadRequest(raw.into())),
+            }
+        }
+
+        Ok(decoded)
     }
 }
