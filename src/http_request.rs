@@ -192,7 +192,7 @@ impl HttpRequest {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum HttpMethod {
     Get,
     Post,

@@ -189,7 +189,10 @@ impl Endpoints {
         http_request: &HttpRequest,
         data_dir: &Path,
     ) -> Result<Vec<u8>, EndpointError> {
-        let request_target = http_request.request_target.trim_start_matches('/');
+        let request_target = match http_request.http_method {
+            HttpMethod::Get => http_request.request_target.trim_start_matches('/'),
+            HttpMethod::Post => http_request.request_target.trim_start_matches("/files/"), // POST: /files/{target}
+        };
 
         // Empty target: return `DEFAULT_TARGET` content if possible, else a directory listing
         if request_target.is_empty() {
