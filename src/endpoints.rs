@@ -136,7 +136,6 @@ impl Endpoints {
                 },
                 HttpMethod::Post => {
                     let filename = self.get_target_filename(http_request)?;
-                    dbg!("HELLO");
                     let file_path = data_dir.join(filename);
                     let content = http_request
                         .body
